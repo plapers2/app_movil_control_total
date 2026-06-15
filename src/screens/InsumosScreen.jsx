@@ -15,12 +15,21 @@ import client from '../api/client';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 
+const UNIDADES = [
+  { label: 'Kilogramo (kg)', value: 'kg' },
+  { label: 'Gramo (g)', value: 'g' },
+  { label: 'Litro (l)', value: 'l' },
+  { label: 'Mililitro (ml)', value: 'ml' },
+  { label: 'Unidad', value: 'unidad' },
+];
+
 const InsumosScreen = () => {
   const [insumos, setInsumos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editando, setEditando] = useState(null);
+  const [modalUnidad, setModalUnidad] = useState(false);
 
   const [form, setForm] = useState({
     nombre: '',
@@ -108,6 +117,9 @@ const InsumosScreen = () => {
   const stockBajo = item =>
     Number(item.stock_actual) <= Number(item.stock_minimo);
 
+  const unidadLabel = value =>
+    UNIDADES.find(u => u.value === value)?.label || value;
+
   if (loading)
     return (
       <View style={s.center}>
@@ -169,6 +181,7 @@ const InsumosScreen = () => {
         )}
       />
 
+      {/* Modal principal del formulario */}
       <Modal
         visible={modal}
         animationType="slide"
@@ -184,31 +197,75 @@ const InsumosScreen = () => {
             </TouchableOpacity>
           </View>
 
-          {[
-            { key: 'nombre', label: 'Nombre *', keyboard: 'default' },
-            {
-              key: 'unidad_medida',
-              label: 'Unidad (kg, l, u…) *',
-              keyboard: 'default',
-            },
-            { key: 'stock_actual', label: 'Stock actual', keyboard: 'numeric' },
-            { key: 'stock_minimo', label: 'Stock mínimo', keyboard: 'numeric' },
-            {
-              key: 'precio_unidad',
-              label: 'Precio por unidad',
-              keyboard: 'numeric',
-            },
-          ].map(({ key, label, keyboard }) => (
-            <View key={key} style={s.field}>
-              <Text style={s.label}>{label}</Text>
-              <TextInput
-                style={s.input}
-                value={form[key]}
-                onChangeText={v => setForm(prev => ({ ...prev, [key]: v }))}
-                keyboardType={keyboard}
-              />
-            </View>
-          ))}
+          {/* Nombre */}
+          <View style={s.field}>
+            <Text style={s.label}>Nombre *</Text>
+            <TextInput
+              style={s.input}
+              value={form.nombre}
+              onChangeText={v => setForm(prev => ({ ...prev, nombre: v }))}
+              keyboardType="default"
+            />
+          </View>
+
+          {/* Unidad medida - Selector */}
+          <View style={s.field}>
+            <Text style={s.label}>Unidad de medida *</Text>
+            <TouchableOpacity
+              style={[s.input, s.selector]}
+              onPress={() => setModalUnidad(true)}
+            >
+              <Text
+                style={
+                  form.unidad_medida ? s.selectorText : s.selectorPlaceholder
+                }
+              >
+                {form.unidad_medida
+                  ? unidadLabel(form.unidad_medida)
+                  : 'Seleccionar unidad...'}
+              </Text>
+              <Text style={s.selectorArrow}>▼</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Stock actual */}
+          <View style={s.field}>
+            <Text style={s.label}>Stock actual</Text>
+            <TextInput
+              style={s.input}
+              value={form.stock_actual}
+              onChangeText={v =>
+                setForm(prev => ({ ...prev, stock_actual: v }))
+              }
+              keyboardType="numeric"
+            />
+          </View>
+
+          {/* Stock mínimo */}
+          <View style={s.field}>
+            <Text style={s.label}>Stock mínimo</Text>
+            <TextInput
+              style={s.input}
+              value={form.stock_minimo}
+              onChangeText={v =>
+                setForm(prev => ({ ...prev, stock_minimo: v }))
+              }
+              keyboardType="numeric"
+            />
+          </View>
+
+          {/* Precio */}
+          <View style={s.field}>
+            <Text style={s.label}>Precio por unidad</Text>
+            <TextInput
+              style={s.input}
+              value={form.precio_unidad}
+              onChangeText={v =>
+                setForm(prev => ({ ...prev, precio_unidad: v }))
+              }
+              keyboardType="numeric"
+            />
+          </View>
 
           <TouchableOpacity
             style={[s.btnGuardar, saving && { opacity: 0.6 }]}
@@ -220,6 +277,50 @@ const InsumosScreen = () => {
             </Text>
           </TouchableOpacity>
         </View>
+      </Modal>
+
+      {/* Modal selector de unidad */}
+      <Modal
+        visible={modalUnidad}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setModalUnidad(false)}
+      >
+        <TouchableOpacity
+          style={s.overlay}
+          activeOpacity={1}
+          onPress={() => setModalUnidad(false)}
+        >
+          <View style={s.dropdownContainer}>
+            <Text style={s.dropdownTitle}>Seleccionar unidad</Text>
+            {UNIDADES.map(u => (
+              <TouchableOpacity
+                key={u.value}
+                style={[
+                  s.dropdownItem,
+                  form.unidad_medida === u.value && s.dropdownItemSelected,
+                ]}
+                onPress={() => {
+                  setForm(prev => ({ ...prev, unidad_medida: u.value }));
+                  setModalUnidad(false);
+                }}
+              >
+                <Text
+                  style={[
+                    s.dropdownItemText,
+                    form.unidad_medida === u.value &&
+                      s.dropdownItemTextSelected,
+                  ]}
+                >
+                  {u.label}
+                </Text>
+                {form.unidad_medida === u.value && (
+                  <Text style={s.checkmark}>✓</Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
       </Modal>
     </View>
   );
@@ -300,6 +401,47 @@ const s = StyleSheet.create({
     padding: 12,
     fontSize: 15,
   },
+  selector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  selectorText: { fontSize: 15, color: '#333' },
+  selectorPlaceholder: { fontSize: 15, color: '#aaa' },
+  selectorArrow: { fontSize: 12, color: '#888' },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dropdownContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    width: '80%',
+    paddingVertical: 8,
+    elevation: 5,
+  },
+  dropdownTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#888',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderColor: '#eee',
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  dropdownItemSelected: { backgroundColor: '#FFF0F0' },
+  dropdownItemText: { fontSize: 15, color: '#333' },
+  dropdownItemTextSelected: { color: '#E63946', fontWeight: '600' },
+  checkmark: { color: '#E63946', fontWeight: 'bold' },
   btnGuardar: {
     margin: 20,
     backgroundColor: '#E63946',

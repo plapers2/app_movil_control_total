@@ -14,7 +14,7 @@ if linkage != nil
   use_frameworks! :linkage => linkage.to_sym
 end
 
-target 'ArepitaApp' do
+target 'control_total' do
   config = use_native_modules!
 
   use_react_native!(

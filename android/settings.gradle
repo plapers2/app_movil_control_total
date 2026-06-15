@@ -1,7 +1,7 @@
 pluginManagement {
     includeBuild("../node_modules/@react-native/gradle-plugin")
     repositories {
-        maven { url = uri("https://104.16.73.101/m2") }
+        maven { url = uri("https://plugins.gradle.org/m2/") }
         gradlePluginPortal()
         google()
         mavenCentral()
@@ -9,6 +9,6 @@ pluginManagement {
 }
 plugins { id("com.facebook.react.settings") }
 extensions.configure(com.facebook.react.ReactSettingsExtension){ ex -> ex.autolinkLibrariesFromCommand() }
-rootProject.name = 'ArepitaApp'
+rootProject.name = 'control_total'
 include ':app'
 includeBuild('../node_modules/@react-native/gradle-plugin')

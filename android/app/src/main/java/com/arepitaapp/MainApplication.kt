@@ -1,4 +1,4 @@
-package com.arepitaapp
+package com.control_total
 
 import android.app.Application
 import com.facebook.react.PackageList
