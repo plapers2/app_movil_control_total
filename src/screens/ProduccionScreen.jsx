@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -16,14 +17,184 @@ import client from '../api/client';
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 const fmtFecha = d => new Date(d).toLocaleDateString('es-CO');
 
+// ─── Paso 1: Seleccionar producto ────────────────────────────────────
+const PasoProducto = ({ productos, onSeleccionar }) => (
+  <View style={{ flex: 1 }}>
+    <Text style={s.sectionLabel}>¿Qué producto vas a producir?</Text>
+    <FlatList
+      data={productos.filter(p => p.activo)}
+      keyExtractor={p => String(p.id)}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
+      ListEmptyComponent={
+        <Text style={s.empty}>Sin productos registrados</Text>
+      }
+      renderItem={({ item }) => (
+        <TouchableOpacity
+          style={s.prodCard}
+          onPress={() => onSeleccionar(item)}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={s.prodNombre}>{item.nombre}</Text>
+            {item.recetas?.length > 0 ? (
+              <Text style={s.prodRecetaHint}>
+                {item.recetas.length} ingrediente
+                {item.recetas.length > 1 ? 's' : ''} en receta
+              </Text>
+            ) : (
+              <Text style={s.prodSinReceta}>Sin receta configurada</Text>
+            )}
+          </View>
+          <Text style={s.arrow}>›</Text>
+        </TouchableOpacity>
+      )}
+    />
+  </View>
+);
+
+// ─── Paso 2: Ajustar insumos y cantidad producida ────────────────────
+const PasoInsumos = ({ producto, onGuardar, onVolver, saving }) => {
+  const [cantidad, setCantidad] = useState('1');
+  const [insumos, setInsumos] = useState(
+    (producto.recetas || []).map(r => ({
+      insumos_id: r.insumos_id,
+      nombre: r.insumos?.nombre || '',
+      unidad: r.insumos?.unidad_medida || '',
+      cantidad_base: Number(r.cantidad),
+      cantidad_real: String(Number(r.cantidad) * 1),
+    })),
+  );
+  const [notas, setNotas] = useState('');
+
+  // Recalcular cantidades al cambiar la cantidad de producción
+  const onCantidadChange = v => {
+    const n = Number(v) || 1;
+    setCantidad(v);
+    setInsumos(prev =>
+      prev.map(i => ({
+        ...i,
+        cantidad_real: String(+(i.cantidad_base * n).toFixed(3)),
+      })),
+    );
+  };
+
+  const onInsumoChange = (idx, v) => {
+    setInsumos(prev =>
+      prev.map((i, n) => (n === idx ? { ...i, cantidad_real: v } : i)),
+    );
+  };
+
+  const confirmar = () => {
+    const cantNum = Number(cantidad);
+    if (!cantNum || cantNum <= 0)
+      return Alert.alert('Error', 'La cantidad debe ser mayor a 0.');
+
+    onGuardar({
+      productos_id: producto.id,
+      cantidad: cantNum,
+      notas,
+      insumos_reales: insumos.map(i => ({
+        insumos_id: i.insumos_id,
+        cantidad: Number(i.cantidad_real) || 0,
+      })),
+    });
+  };
+
+  return (
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={{ paddingBottom: 20 }}
+    >
+      {/* Producto seleccionado */}
+      <View style={s.productoSeleccionado}>
+        <TouchableOpacity onPress={onVolver} style={s.volverBtn}>
+          <Text style={s.volverText}>‹ Cambiar</Text>
+        </TouchableOpacity>
+        <Text style={s.productoSeleccionadoNombre}>{producto.nombre}</Text>
+      </View>
+
+      {/* Cantidad producida */}
+      <View style={s.field}>
+        <Text style={s.label}>Unidades que salieron del lote *</Text>
+        <TextInput
+          style={s.input}
+          value={cantidad}
+          onChangeText={onCantidadChange}
+          keyboardType="numeric"
+          placeholder="Ej: 50"
+        />
+      </View>
+
+      {/* Insumos */}
+      {insumos.length > 0 ? (
+        <>
+          <Text style={s.sectionLabel}>Insumos utilizados</Text>
+          <Text style={s.sectionHint}>
+            Registra cuánto se usó realmente en este lote
+          </Text>
+          {insumos.map((item, idx) => (
+            <View key={item.insumos_id} style={s.insumoRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.insumoNombre}>{item.nombre}</Text>
+                <Text style={s.insumoBase}>
+                  Base receta: {item.cantidad_base} {item.unidad} ×{' '}
+                  {cantidad || 1}
+                </Text>
+              </View>
+              <TextInput
+                style={s.cantInput}
+                value={item.cantidad_real}
+                onChangeText={v => onInsumoChange(idx, v)}
+                keyboardType="numeric"
+              />
+              <Text style={s.unidad}>{item.unidad}</Text>
+            </View>
+          ))}
+        </>
+      ) : (
+        <View style={s.sinRecetaBox}>
+          <Text style={s.sinRecetaText}>
+            ⚠️ Este producto no tiene receta configurada. No se descontarán
+            insumos automáticamente.
+          </Text>
+        </View>
+      )}
+
+      {/* Notas */}
+      <View style={s.field}>
+        <Text style={s.label}>Notas (opcional)</Text>
+        <TextInput
+          style={[s.input, { minHeight: 70 }]}
+          value={notas}
+          onChangeText={setNotas}
+          placeholder="Ej: Producción del lunes"
+          multiline
+        />
+      </View>
+
+      <TouchableOpacity
+        style={[s.btnGuardar, saving && { opacity: 0.6 }]}
+        onPress={confirmar}
+        disabled={saving}
+      >
+        <Text style={s.btnGuardarText}>
+          {saving ? 'Registrando...' : '✓ Registrar lote producido'}
+        </Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+};
+
+// ─── Pantalla principal ──────────────────────────────────────────────
 const ProduccionScreen = () => {
   const [lotes, setLotes] = useState([]);
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [items, setItems] = useState([]);
-  const [notas, setNotas] = useState('');
+  const [paso, setPaso] = useState(1); // 1: seleccionar producto, 2: insumos
+  const [productoSeleccionado, setProductoSeleccionado] = useState(null);
+  const [loteDetalle, setLoteDetalle] = useState(null);
+  const [modalDetalle, setModalDetalle] = useState(false);
 
   const cargar = useCallback(async () => {
     try {
@@ -37,43 +208,48 @@ const ProduccionScreen = () => {
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    cargar();
-  }, [cargar]);
+  useFocusEffect(
+    useCallback(() => {
+      cargar();
+    }, [cargar]),
+  );
 
-  const agregarProducto = producto => {
-    setItems(prev => {
-      const existe = prev.find(i => i.productos_id === producto.id);
-      if (existe)
-        return prev.map(i =>
-          i.productos_id === producto.id
-            ? { ...i, cantidad: i.cantidad + 1 }
-            : i,
-        );
-      return [
-        ...prev,
-        { productos_id: producto.id, nombre: producto.nombre, cantidad: 1 },
-      ];
-    });
+  const abrirModal = () => {
+    setPaso(1);
+    setProductoSeleccionado(null);
+    setModal(true);
   };
 
-  const guardar = async () => {
-    if (!items.length)
-      return Alert.alert('Error', 'Agrega al menos un producto.');
+  const seleccionarProducto = producto => {
+    setProductoSeleccionado(producto);
+    setPaso(2);
+  };
+
+  const verDetalle = async lote => {
+    try {
+      const res = await client.get(`/produccion/${lote.id}`);
+      setLoteDetalle(res.data.data);
+      setModalDetalle(true);
+    } catch {
+      Alert.alert('Error', 'No se pudo cargar el detalle.');
+    }
+  };
+
+  const guardar = async ({ productos_id, cantidad, notas, insumos_reales }) => {
     try {
       setSaving(true);
       await client.post('/produccion', {
         fecha: new Date().toISOString().split('T')[0],
         notas,
-        items: items.map(({ productos_id, cantidad }) => ({
-          productos_id,
-          cantidad,
-        })),
+        items: [{ productos_id, cantidad }],
+        insumos_reales, // para descuento real si el backend lo soporta
       });
       setModal(false);
-      setItems([]);
-      setNotas('');
       cargar();
+      Alert.alert(
+        '✓ Lote registrado',
+        `Se registraron ${cantidad} unidades producidas de ${productoSeleccionado?.nombre}.`,
+      );
     } catch (err) {
       Alert.alert(
         'Error',
@@ -95,7 +271,7 @@ const ProduccionScreen = () => {
     <View style={s.container}>
       <View style={s.header}>
         <Text style={s.title}>Producción</Text>
-        <TouchableOpacity style={s.btnNew} onPress={() => setModal(true)}>
+        <TouchableOpacity style={s.btnNew} onPress={abrirModal}>
           <Text style={s.btnNewText}>+ Lote</Text>
         </TouchableOpacity>
       </View>
@@ -106,21 +282,22 @@ const ProduccionScreen = () => {
         contentContainerStyle={{ padding: 16 }}
         ListEmptyComponent={<Text style={s.empty}>Sin lotes registrados</Text>}
         renderItem={({ item }) => (
-          <View style={s.card}>
+          <TouchableOpacity style={s.card} onPress={() => verDetalle(item)}>
             <View style={s.cardRow}>
               <Text style={s.cardTitle}>Lote #{item.id}</Text>
               <Text style={s.cardFecha}>{fmtFecha(item.fecha)}</Text>
             </View>
             {item.notas ? <Text style={s.cardNotas}>{item.notas}</Text> : null}
             {item.lotes_produccion_items?.map(li => (
-              <Text key={li.id} style={s.cardItem}>
-                • {li.productos?.nombre} × {li.cantidad}
-              </Text>
+              <View key={li.id} style={s.loteItem}>
+                <Text style={s.loteItemNombre}>• {li.productos?.nombre}</Text>
+                <Text style={s.loteItemCant}>{li.cantidad} uds</Text>
+              </View>
             ))}
             {Number(item.costo_total) > 0 && (
               <Text style={s.cardCosto}>Costo: {fmt(item.costo_total)}</Text>
             )}
-          </View>
+          </TouchableOpacity>
         )}
       />
 
@@ -131,77 +308,116 @@ const ProduccionScreen = () => {
       >
         <View style={s.modal}>
           <View style={s.modalHeader}>
-            <Text style={s.modalTitle}>Nuevo lote</Text>
+            <Text style={s.modalTitle}>
+              {paso === 1 ? 'Nuevo lote' : 'Detalle del lote'}
+            </Text>
             <TouchableOpacity onPress={() => setModal(false)}>
               <Text style={s.close}>✕</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView>
-            <Text style={s.sectionLabel}>Productos a producir</Text>
-            {productos
-              .filter(p => p.activo)
-              .map(p => (
-                <TouchableOpacity
-                  key={p.id}
-                  style={s.prodRow}
-                  onPress={() => agregarProducto(p)}
-                >
-                  <Text style={s.prodNombre}>{p.nombre}</Text>
-                  <Text style={s.addBtn}>＋</Text>
-                </TouchableOpacity>
+
+          {/* Indicador de pasos */}
+          <View style={s.pasos}>
+            <View style={[s.paso, paso >= 1 && s.pasoActivo]}>
+              <Text style={[s.pasoNum, paso >= 1 && s.pasoNumActivo]}>1</Text>
+              <Text style={[s.pasoLabel, paso >= 1 && s.pasoLabelActivo]}>
+                Producto
+              </Text>
+            </View>
+            <View style={s.pasoDivider} />
+            <View style={[s.paso, paso >= 2 && s.pasoActivo]}>
+              <Text style={[s.pasoNum, paso >= 2 && s.pasoNumActivo]}>2</Text>
+              <Text style={[s.pasoLabel, paso >= 2 && s.pasoLabelActivo]}>
+                Insumos
+              </Text>
+            </View>
+          </View>
+
+          {paso === 1 ? (
+            <PasoProducto
+              productos={productos}
+              onSeleccionar={seleccionarProducto}
+            />
+          ) : (
+            <PasoInsumos
+              producto={productoSeleccionado}
+              onGuardar={guardar}
+              onVolver={() => setPaso(1)}
+              saving={saving}
+            />
+          )}
+        </View>
+      </Modal>
+      <Modal
+        visible={modalDetalle}
+        animationType="slide"
+        onRequestClose={() => setModalDetalle(false)}
+      >
+        <View style={s.modal}>
+          <View style={s.modalHeader}>
+            <Text style={s.modalTitle}>Lote #{loteDetalle?.id}</Text>
+            <TouchableOpacity onPress={() => setModalDetalle(false)}>
+              <Text style={s.close}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          {loteDetalle && (
+            <ScrollView contentContainerStyle={{ padding: 16 }}>
+              {/* Fecha y notas */}
+              <View style={s.detalleSeccion}>
+                <Text style={s.detalleLabel}>Fecha</Text>
+                <Text style={s.detalleValor}>
+                  {fmtFecha(loteDetalle.fecha)}
+                </Text>
+              </View>
+              {loteDetalle.notas ? (
+                <View style={s.detalleSeccion}>
+                  <Text style={s.detalleLabel}>Notas</Text>
+                  <Text style={s.detalleValor}>{loteDetalle.notas}</Text>
+                </View>
+              ) : null}
+
+              {/* Productos producidos */}
+              <Text style={s.sectionLabel}>Productos producidos</Text>
+              {loteDetalle.lotes_produccion_items?.map(li => (
+                <View key={li.id} style={s.detalleRow}>
+                  <Text style={s.detalleRowNombre}>{li.productos?.nombre}</Text>
+                  <Text style={s.detalleRowCant}>{li.cantidad} uds</Text>
+                </View>
               ))}
 
-            {items.length > 0 && (
-              <>
-                <Text style={s.sectionLabel}>Resumen del lote</Text>
-                {items.map((item, idx) => (
-                  <View key={item.productos_id} style={s.itemRow}>
-                    <Text style={s.itemNombre}>{item.nombre}</Text>
-                    <TextInput
-                      style={s.cantInput}
-                      value={String(item.cantidad)}
-                      onChangeText={v =>
-                        setItems(prev =>
-                          prev.map((i, n) =>
-                            n === idx ? { ...i, cantidad: Number(v) || 1 } : i,
-                          ),
-                        )
-                      }
-                      keyboardType="numeric"
-                    />
-                    <TouchableOpacity
-                      onPress={() =>
-                        setItems(prev => prev.filter((_, n) => n !== idx))
-                      }
-                    >
-                      <Text style={s.removeBtn}>✕</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </>
-            )}
+              {/* Insumos usados */}
+              {loteDetalle.movimientos_insumos?.length > 0 && (
+                <>
+                  <Text style={s.sectionLabel}>Insumos utilizados</Text>
+                  {loteDetalle.movimientos_insumos.map(m => (
+                    <View key={m.id} style={s.detalleRow}>
+                      <Text style={s.detalleRowNombre}>
+                        {m.insumos?.nombre}
+                      </Text>
+                      <Text style={s.detalleRowCant}>
+                        {m.cantidad} {m.insumos?.unidad_medida}
+                      </Text>
+                    </View>
+                  ))}
+                </>
+              )}
 
-            <View style={s.field}>
-              <Text style={s.label}>Notas (opcional)</Text>
-              <TextInput
-                style={s.input}
-                value={notas}
-                onChangeText={setNotas}
-                placeholder="Ej: Producción del día"
-                multiline
-              />
-            </View>
-          </ScrollView>
-
-          <TouchableOpacity
-            style={[s.btnGuardar, saving && { opacity: 0.6 }]}
-            onPress={guardar}
-            disabled={saving}
-          >
-            <Text style={s.btnGuardarText}>
-              {saving ? 'Registrando...' : 'Registrar lote'}
-            </Text>
-          </TouchableOpacity>
+              {/* Costo */}
+              {Number(loteDetalle.costo_total) > 0 && (
+                <View style={[s.detalleSeccion, { marginTop: 16 }]}>
+                  <Text style={s.detalleLabel}>Costo total</Text>
+                  <Text
+                    style={[
+                      s.detalleValor,
+                      { color: '#E63946', fontWeight: '700' },
+                    ]}
+                  >
+                    {fmt(loteDetalle.costo_total)}
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+          )}
         </View>
       </Modal>
     </View>
@@ -239,15 +455,27 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 6,
   },
   cardTitle: { fontSize: 15, fontWeight: '700', color: '#333' },
   cardFecha: { fontSize: 13, color: '#888' },
-  cardNotas: { fontSize: 13, color: '#666', marginTop: 4, fontStyle: 'italic' },
-  cardItem: { fontSize: 13, color: '#555', marginTop: 4 },
+  cardNotas: {
+    fontSize: 13,
+    color: '#666',
+    fontStyle: 'italic',
+    marginBottom: 6,
+  },
+  loteItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  loteItemNombre: { fontSize: 13, color: '#555' },
+  loteItemCant: { fontSize: 13, color: '#457B9D', fontWeight: '600' },
   cardCosto: {
     fontSize: 13,
     color: '#E63946',
-    marginTop: 6,
+    marginTop: 8,
     fontWeight: '600',
   },
   modal: { flex: 1, backgroundColor: '#fff' },
@@ -262,47 +490,83 @@ const s = StyleSheet.create({
   },
   modalTitle: { fontSize: 20, fontWeight: 'bold' },
   close: { fontSize: 20, color: '#888' },
+  pasos: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    backgroundColor: '#fafafa',
+    borderBottomWidth: 1,
+    borderColor: '#eee',
+  },
+  paso: { alignItems: 'center', flex: 1 },
+  pasoActivo: {},
+  pasoNum: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#ddd',
+    textAlign: 'center',
+    lineHeight: 28,
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#999',
+    overflow: 'hidden',
+  },
+  pasoNumActivo: { backgroundColor: '#E63946', color: '#fff' },
+  pasoLabel: { fontSize: 11, color: '#aaa', marginTop: 4 },
+  pasoLabelActivo: { color: '#E63946', fontWeight: '600' },
+  pasoDivider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#ddd',
+    marginBottom: 16,
+  },
   sectionLabel: {
     fontSize: 13,
     fontWeight: '700',
     color: '#888',
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 6,
+    paddingBottom: 4,
     textTransform: 'uppercase',
   },
-  prodRow: {
+  sectionHint: {
+    fontSize: 12,
+    color: '#aaa',
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  prodCard: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 10,
+    elevation: 1,
+  },
+  prodNombre: { fontSize: 15, fontWeight: '700', color: '#333' },
+  prodRecetaHint: { fontSize: 12, color: '#2DC653', marginTop: 2 },
+  prodSinReceta: { fontSize: 12, color: '#aaa', marginTop: 2 },
+  arrow: { fontSize: 22, color: '#ccc', marginLeft: 8 },
+  productoSeleccionado: {
+    flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    backgroundColor: '#FFF0F0',
     borderBottomWidth: 1,
-    borderColor: '#f0f0f0',
+    borderColor: '#fdd',
   },
-  prodNombre: { fontSize: 15, color: '#333' },
-  addBtn: { fontSize: 22, color: '#E63946', fontWeight: 'bold' },
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderColor: '#f0f0f0',
-    gap: 8,
+  volverBtn: { marginRight: 12 },
+  volverText: { color: '#E63946', fontSize: 14, fontWeight: '600' },
+  productoSeleccionadoNombre: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
   },
-  itemNombre: { flex: 1, fontSize: 14, color: '#333' },
-  cantInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 6,
-    padding: 6,
-    width: 50,
-    textAlign: 'center',
-    fontSize: 14,
-  },
-  removeBtn: { color: '#E63946', fontSize: 16, padding: 4 },
-  field: { paddingHorizontal: 20, paddingTop: 16 },
+  field: { paddingHorizontal: 16, paddingTop: 16 },
   label: { fontSize: 13, color: '#888', marginBottom: 6 },
   input: {
     borderWidth: 1,
@@ -310,15 +574,66 @@ const s = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 15,
+    backgroundColor: '#fff',
   },
+  insumoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderColor: '#f0f0f0',
+    gap: 8,
+  },
+  insumoNombre: { fontSize: 14, fontWeight: '600', color: '#333' },
+  insumoBase: { fontSize: 11, color: '#aaa', marginTop: 2 },
+  cantInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 6,
+    padding: 8,
+    width: 70,
+    textAlign: 'center',
+    fontSize: 14,
+    backgroundColor: '#fff',
+  },
+  unidad: { fontSize: 13, color: '#888', width: 35 },
+  sinRecetaBox: {
+    margin: 16,
+    padding: 14,
+    backgroundColor: '#FFF8E1',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#FFC107',
+  },
+  sinRecetaText: { fontSize: 13, color: '#7B6000' },
   btnGuardar: {
-    margin: 20,
+    margin: 16,
     backgroundColor: '#E63946',
     padding: 16,
     borderRadius: 10,
     alignItems: 'center',
   },
   btnGuardarText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  detalleSeccion: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  detalleLabel: { fontSize: 13, color: '#888' },
+  detalleValor: { fontSize: 13, color: '#333', fontWeight: '600' },
+  detalleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  detalleRowNombre: { fontSize: 14, color: '#333' },
+  detalleRowCant: { fontSize: 14, color: '#457B9D', fontWeight: '600' },
 });
 
 export default ProduccionScreen;

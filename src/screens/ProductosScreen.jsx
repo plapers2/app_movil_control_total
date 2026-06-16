@@ -21,17 +21,18 @@ const ProductosScreen = () => {
   const [insumos, setInsumos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
-  const [modalReceta, setModalReceta] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editando, setEditando] = useState(null);
-  const [productoReceta, setProductoReceta] = useState(null);
-  const [recetaItems, setRecetaItems] = useState([]);
+  const [modalInsumo, setModalInsumo] = useState(false);
 
   const [form, setForm] = useState({
     nombre: '',
     descripcion: '',
     precio_venta: '',
   });
+
+  // Ingredientes de la receta en el formulario
+  const [receta, setReceta] = useState([]);
 
   const cargar = useCallback(async () => {
     try {
@@ -54,6 +55,7 @@ const ProductosScreen = () => {
   const abrirNuevo = () => {
     setEditando(null);
     setForm({ nombre: '', descripcion: '', precio_venta: '' });
+    setReceta([]);
     setModal(true);
   };
 
@@ -64,45 +66,23 @@ const ProductosScreen = () => {
       descripcion: item.descripcion || '',
       precio_venta: String(item.precio_venta),
     });
-    setModal(true);
-  };
-
-  const abrirReceta = producto => {
-    setProductoReceta(producto);
-    setRecetaItems(
-      (producto.recetas || []).map(r => ({
+    setReceta(
+      (item.recetas || []).map(r => ({
         insumos_id: r.insumos_id,
         nombre: r.insumos?.nombre || '',
         unidad: r.insumos?.unidad_medida || '',
         cantidad: String(r.cantidad),
       })),
     );
-    setModalReceta(true);
+    setModal(true);
   };
 
-  const guardar = async () => {
-    if (!form.nombre) return Alert.alert('Error', 'El nombre es requerido.');
-    try {
-      setSaving(true);
-      const data = {
-        nombre: form.nombre,
-        descripcion: form.descripcion,
-        precio_venta: Number(form.precio_venta) || 0,
-      };
-      if (editando) await client.put(`/productos/${editando.id}`, data);
-      else await client.post('/productos', data);
-      setModal(false);
-      cargar();
-    } catch (err) {
-      Alert.alert('Error', err.response?.data?.message || 'Error al guardar.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const agregarInsumoReceta = insumo => {
-    setRecetaItems(prev => {
-      if (prev.find(i => i.insumos_id === insumo.id)) return prev;
+  const agregarInsumo = insumo => {
+    setReceta(prev => {
+      if (prev.find(i => i.insumos_id === insumo.id)) {
+        Alert.alert('', 'Este insumo ya está en la receta.');
+        return prev;
+      }
       return [
         ...prev,
         {
@@ -113,21 +93,51 @@ const ProductosScreen = () => {
         },
       ];
     });
+    setModalInsumo(false);
   };
 
-  const guardarReceta = async () => {
+  const guardar = async () => {
+    if (!form.nombre) return Alert.alert('Error', 'El nombre es requerido.');
+
+    // Validar que todos los ingredientes tengan cantidad
+    const invalido = receta.find(
+      r => !Number(r.cantidad) || Number(r.cantidad) <= 0,
+    );
+    if (invalido)
+      return Alert.alert(
+        'Error',
+        `La cantidad de "${invalido.nombre}" debe ser mayor a 0.`,
+      );
+
     try {
       setSaving(true);
-      await client.put(`/productos/${productoReceta.id}/receta`, {
-        insumos: recetaItems.map(i => ({
-          insumos_id: i.insumos_id,
-          cantidad: Number(i.cantidad),
+      const data = {
+        nombre: form.nombre,
+        descripcion: form.descripcion,
+        precio_venta: Number(form.precio_venta) || 0,
+      };
+
+      let productoId;
+      if (editando) {
+        await client.put(`/productos/${editando.id}`, data);
+        productoId = editando.id;
+      } else {
+        const res = await client.post('/productos', data);
+        productoId = res.data.data.id;
+      }
+
+      // Guardar receta si hay ingredientes (o limpiarla si se borraron todos)
+      await client.put(`/productos/${productoId}/receta`, {
+        insumos: receta.map(r => ({
+          insumos_id: r.insumos_id,
+          cantidad: Number(r.cantidad),
         })),
       });
-      setModalReceta(false);
+
+      setModal(false);
       cargar();
     } catch (err) {
-      Alert.alert('Error', 'Error al guardar receta.');
+      Alert.alert('Error', err.response?.data?.message || 'Error al guardar.');
     } finally {
       setSaving(false);
     }
@@ -185,12 +195,6 @@ const ProductosScreen = () => {
               </View>
               <View style={s.actions}>
                 <TouchableOpacity
-                  onPress={() => abrirReceta(item)}
-                  style={s.recetaBtn}
-                >
-                  <Text style={s.recetaBtnText}>🧾</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
                   onPress={() => abrirEditar(item)}
                   style={s.editBtn}
                 >
@@ -203,7 +207,7 @@ const ProductosScreen = () => {
             </View>
             {item.recetas?.length > 0 && (
               <View style={s.recetaPreview}>
-                <Text style={s.recetaLabel}>Receta: </Text>
+                <Text style={s.recetaLabel}>🧾 Receta: </Text>
                 <Text style={s.recetaText}>
                   {item.recetas
                     .map(
@@ -218,7 +222,7 @@ const ProductosScreen = () => {
         )}
       />
 
-      {/* Modal producto */}
+      {/* ── Modal producto + receta ── */}
       <Modal
         visible={modal}
         animationType="slide"
@@ -233,78 +237,78 @@ const ProductosScreen = () => {
               <Text style={s.close}>✕</Text>
             </TouchableOpacity>
           </View>
-          {[
-            { key: 'nombre', label: 'Nombre *', keyboard: 'default' },
-            { key: 'descripcion', label: 'Descripción', keyboard: 'default' },
-            {
-              key: 'precio_venta',
-              label: 'Precio de venta',
-              keyboard: 'numeric',
-            },
-          ].map(({ key, label, keyboard }) => (
-            <View key={key} style={s.field}>
-              <Text style={s.label}>{label}</Text>
+
+          <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
+            {/* ── Datos básicos ── */}
+            <Text style={s.sectionLabel}>Información del producto</Text>
+
+            <View style={s.field}>
+              <Text style={s.label}>Nombre *</Text>
               <TextInput
                 style={s.input}
-                value={form[key]}
-                onChangeText={v => setForm(prev => ({ ...prev, [key]: v }))}
-                keyboardType={keyboard}
+                value={form.nombre}
+                onChangeText={v => setForm(p => ({ ...p, nombre: v }))}
+                placeholder="Ej: Arepa de choclo"
               />
             </View>
-          ))}
-          <TouchableOpacity
-            style={[s.btnGuardar, saving && { opacity: 0.6 }]}
-            onPress={guardar}
-            disabled={saving}
-          >
-            <Text style={s.btnGuardarText}>
-              {saving ? 'Guardando...' : 'Guardar'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
 
-      {/* Modal receta */}
-      <Modal
-        visible={modalReceta}
-        animationType="slide"
-        onRequestClose={() => setModalReceta(false)}
-      >
-        <View style={s.modal}>
-          <View style={s.modalHeader}>
-            <Text style={s.modalTitle}>Receta: {productoReceta?.nombre}</Text>
-            <TouchableOpacity onPress={() => setModalReceta(false)}>
-              <Text style={s.close}>✕</Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView>
-            <Text style={s.sectionLabel}>Insumos disponibles</Text>
-            {insumos
-              .filter(i => i.activo)
-              .map(i => (
-                <TouchableOpacity
-                  key={i.id}
-                  style={s.insumoRow}
-                  onPress={() => agregarInsumoReceta(i)}
-                >
-                  <Text style={s.insumoNombre}>
-                    {i.nombre} ({i.unidad_medida})
-                  </Text>
-                  <Text style={s.addBtn}>＋</Text>
-                </TouchableOpacity>
-              ))}
+            <View style={s.field}>
+              <Text style={s.label}>Descripción</Text>
+              <TextInput
+                style={[s.input, { minHeight: 70 }]}
+                value={form.descripcion}
+                onChangeText={v => setForm(p => ({ ...p, descripcion: v }))}
+                placeholder="Descripción opcional"
+                multiline
+              />
+            </View>
 
-            {recetaItems.length > 0 && (
+            <View style={s.field}>
+              <Text style={s.label}>Precio de venta</Text>
+              <TextInput
+                style={s.input}
+                value={form.precio_venta}
+                onChangeText={v => setForm(p => ({ ...p, precio_venta: v }))}
+                keyboardType="numeric"
+                placeholder="Ej: 2500"
+              />
+            </View>
+
+            {/* ── Receta ── */}
+            <View style={s.recetaHeader}>
+              <Text style={s.sectionLabel}>Receta / Ingredientes</Text>
+              <TouchableOpacity
+                style={s.btnAgregarInsumo}
+                onPress={() => setModalInsumo(true)}
+              >
+                <Text style={s.btnAgregarInsumoText}>+ Agregar</Text>
+              </TouchableOpacity>
+            </View>
+
+            {receta.length === 0 ? (
+              <TouchableOpacity
+                style={s.recetaVacia}
+                onPress={() => setModalInsumo(true)}
+              >
+                <Text style={s.recetaVaciaIcon}>🧾</Text>
+                <Text style={s.recetaVaciaText}>
+                  Sin ingredientes aún.{'\n'}Toca para agregar insumos a la
+                  receta.
+                </Text>
+              </TouchableOpacity>
+            ) : (
               <>
-                <Text style={s.sectionLabel}>Ingredientes</Text>
-                {recetaItems.map((item, idx) => (
-                  <View key={item.insumos_id} style={s.recetaRow}>
-                    <Text style={s.recetaItemNombre}>{item.nombre}</Text>
+                {receta.map((item, idx) => (
+                  <View key={item.insumos_id} style={s.ingredienteRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.ingredienteNombre}>{item.nombre}</Text>
+                      <Text style={s.ingredienteUnidad}>{item.unidad}</Text>
+                    </View>
                     <TextInput
-                      style={s.cantidadInput}
+                      style={s.cantInput}
                       value={item.cantidad}
                       onChangeText={v =>
-                        setRecetaItems(prev =>
+                        setReceta(prev =>
                           prev.map((r, i) =>
                             i === idx ? { ...r, cantidad: v } : r,
                           ),
@@ -312,28 +316,91 @@ const ProductosScreen = () => {
                       }
                       keyboardType="numeric"
                     />
-                    <Text style={s.unidad}>{item.unidad}</Text>
+                    <Text style={s.cantUnidad}>{item.unidad}</Text>
                     <TouchableOpacity
                       onPress={() =>
-                        setRecetaItems(prev => prev.filter((_, i) => i !== idx))
+                        setReceta(prev => prev.filter((_, i) => i !== idx))
                       }
+                      style={s.removeBtn}
                     >
-                      <Text style={s.removeBtn}>✕</Text>
+                      <Text style={s.removeBtnText}>✕</Text>
                     </TouchableOpacity>
                   </View>
                 ))}
+                <TouchableOpacity
+                  style={s.btnAgregarMas}
+                  onPress={() => setModalInsumo(true)}
+                >
+                  <Text style={s.btnAgregarMasText}>
+                    + Agregar otro ingrediente
+                  </Text>
+                </TouchableOpacity>
               </>
             )}
+
+            <TouchableOpacity
+              style={[s.btnGuardar, saving && { opacity: 0.6 }]}
+              onPress={guardar}
+              disabled={saving}
+            >
+              <Text style={s.btnGuardarText}>
+                {saving ? 'Guardando...' : 'Guardar producto'}
+              </Text>
+            </TouchableOpacity>
           </ScrollView>
-          <TouchableOpacity
-            style={[s.btnGuardar, saving && { opacity: 0.6 }]}
-            onPress={guardarReceta}
-            disabled={saving}
-          >
-            <Text style={s.btnGuardarText}>
-              {saving ? 'Guardando...' : 'Guardar receta'}
-            </Text>
-          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* ── Modal selector de insumo ── */}
+      <Modal
+        visible={modalInsumo}
+        animationType="slide"
+        onRequestClose={() => setModalInsumo(false)}
+      >
+        <View style={s.modal}>
+          <View style={s.modalHeader}>
+            <Text style={s.modalTitle}>Seleccionar insumo</Text>
+            <TouchableOpacity onPress={() => setModalInsumo(false)}>
+              <Text style={s.close}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={insumos.filter(i => i.activo)}
+            keyExtractor={i => String(i.id)}
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+            }}
+            ListEmptyComponent={
+              <Text style={s.empty}>Sin insumos registrados</Text>
+            }
+            renderItem={({ item }) => {
+              const yaAgregado = receta.find(r => r.insumos_id === item.id);
+              return (
+                <TouchableOpacity
+                  style={[s.insumoRow, yaAgregado && s.insumoRowDesactivado]}
+                  onPress={() => !yaAgregado && agregarInsumo(item)}
+                  disabled={!!yaAgregado}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[s.insumoNombre, yaAgregado && { color: '#aaa' }]}
+                    >
+                      {item.nombre}
+                    </Text>
+                    <Text style={s.insumoUnidad}>
+                      {item.unidad_medida} · Stock: {item.stock_actual}
+                    </Text>
+                  </View>
+                  {yaAgregado ? (
+                    <Text style={s.yaAgregado}>✓ Agregado</Text>
+                  ) : (
+                    <Text style={s.addBtn}>＋</Text>
+                  )}
+                </TouchableOpacity>
+              );
+            }}
+          />
         </View>
       </Modal>
     </View>
@@ -341,12 +408,6 @@ const ProductosScreen = () => {
 };
 
 const s = StyleSheet.create({
-  cardStock: {
-    fontSize: 13,
-    color: '#457B9D',
-    fontWeight: '600',
-    marginTop: 2,
-  },
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
@@ -382,11 +443,22 @@ const s = StyleSheet.create({
     color: '#E63946',
     marginTop: 4,
   },
+  cardStock: {
+    fontSize: 13,
+    color: '#457B9D',
+    fontWeight: '600',
+    marginTop: 2,
+  },
   actions: { flexDirection: 'row', gap: 8, marginLeft: 8 },
-  recetaBtn: { padding: 2 },
-  recetaBtnText: { fontSize: 18 },
   editBtn: { padding: 2 },
-  recetaPreview: { flexDirection: 'row', marginTop: 8, flexWrap: 'wrap' },
+  recetaPreview: {
+    flexDirection: 'row',
+    marginTop: 10,
+    flexWrap: 'wrap',
+    borderTopWidth: 1,
+    borderColor: '#f0f0f0',
+    paddingTop: 8,
+  },
   recetaLabel: { fontSize: 12, color: '#888', fontWeight: '600' },
   recetaText: { fontSize: 12, color: '#555', flex: 1 },
   modal: { flex: 1, backgroundColor: '#fff' },
@@ -399,50 +471,19 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#eee',
   },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', flex: 1, marginRight: 8 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold' },
   close: { fontSize: 20, color: '#888' },
   sectionLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#888',
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 6,
+    paddingTop: 20,
+    paddingBottom: 4,
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  insumoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderColor: '#f0f0f0',
-  },
-  insumoNombre: { fontSize: 15, color: '#333' },
-  addBtn: { fontSize: 22, color: '#E63946', fontWeight: 'bold' },
-  recetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderColor: '#f0f0f0',
-    gap: 8,
-  },
-  recetaItemNombre: { flex: 1, fontSize: 14, color: '#333' },
-  cantidadInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 6,
-    padding: 6,
-    width: 60,
-    textAlign: 'center',
-    fontSize: 14,
-  },
-  unidad: { fontSize: 13, color: '#888', width: 30 },
-  removeBtn: { color: '#E63946', fontSize: 16, padding: 4 },
-  field: { paddingHorizontal: 20, paddingTop: 16 },
+  field: { paddingHorizontal: 16, paddingTop: 12 },
   label: { fontSize: 13, color: '#888', marginBottom: 6 },
   input: {
     borderWidth: 1,
@@ -450,15 +491,93 @@ const s = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 15,
+    backgroundColor: '#fafafa',
   },
+  recetaHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingRight: 16,
+  },
+  btnAgregarInsumo: {
+    backgroundColor: '#E63946',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginTop: 16,
+  },
+  btnAgregarInsumoText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  recetaVacia: {
+    margin: 16,
+    padding: 24,
+    borderWidth: 1.5,
+    borderColor: '#ddd',
+    borderStyle: 'dashed',
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  recetaVaciaIcon: { fontSize: 28, marginBottom: 8 },
+  recetaVaciaText: {
+    fontSize: 13,
+    color: '#aaa',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  ingredienteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderColor: '#f0f0f0',
+    gap: 8,
+  },
+  ingredienteNombre: { fontSize: 14, fontWeight: '600', color: '#333' },
+  ingredienteUnidad: { fontSize: 11, color: '#aaa', marginTop: 2 },
+  cantInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 6,
+    padding: 8,
+    width: 70,
+    textAlign: 'center',
+    fontSize: 14,
+    backgroundColor: '#fafafa',
+  },
+  cantUnidad: { fontSize: 12, color: '#888', width: 35 },
+  removeBtn: { padding: 6 },
+  removeBtnText: { color: '#E63946', fontSize: 16 },
+  btnAgregarMas: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E63946',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  btnAgregarMasText: { color: '#E63946', fontSize: 14, fontWeight: '600' },
   btnGuardar: {
-    margin: 20,
+    margin: 16,
+    marginTop: 24,
     backgroundColor: '#E63946',
     padding: 16,
     borderRadius: 10,
     alignItems: 'center',
   },
   btnGuardarText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  insumoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  insumoRowDesactivado: { opacity: 0.5 },
+  insumoNombre: { fontSize: 15, color: '#333', fontWeight: '500' },
+  insumoUnidad: { fontSize: 12, color: '#aaa', marginTop: 2 },
+  addBtn: { fontSize: 24, color: '#E63946', fontWeight: 'bold' },
+  yaAgregado: { fontSize: 13, color: '#2DC653', fontWeight: '600' },
 });
 
 export default ProductosScreen;
