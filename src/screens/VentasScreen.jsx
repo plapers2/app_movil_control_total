@@ -23,6 +23,11 @@ const VentasScreen = () => {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [clientes, setClientes] = useState([]);
+  const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
+  const [modalClientes, setModalClientes] = useState(false);
+  const [ventaDetalle, setVentaDetalle] = useState(null);
+  const [modalDetalle, setModalDetalle] = useState(false);
 
   // Form state
   const [items, setItems] = useState([]);
@@ -30,12 +35,14 @@ const VentasScreen = () => {
 
   const cargar = useCallback(async () => {
     try {
-      const [v, p] = await Promise.all([
+      const [v, p, c] = await Promise.all([
         client.get('/ventas'),
         client.get('/productos'),
+        client.get('/clientes'),
       ]);
       setVentas(v.data.data);
       setProductos(p.data.data);
+      setClientes(c.data.data);
     } catch {}
     setLoading(false);
   }, []);
@@ -81,6 +88,7 @@ const VentasScreen = () => {
       await client.post('/ventas', {
         fecha: new Date().toISOString().split('T')[0],
         canal,
+        clientes_id: clienteSeleccionado?.id ?? null,
         items: items.map(({ productos_id, cantidad, precio_unitario }) => ({
           productos_id,
           cantidad,
@@ -89,11 +97,22 @@ const VentasScreen = () => {
       });
       setModal(false);
       setItems([]);
+      setClienteSeleccionado(null);
       cargar();
     } catch (err) {
       Alert.alert('Error', err.response?.data?.message || 'Error al guardar.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const verDetalle = async venta => {
+    try {
+      const res = await client.get(`/ventas/${venta.id}`);
+      setVentaDetalle(res.data.data);
+      setModalDetalle(true);
+    } catch {
+      Alert.alert('Error', 'No se pudo cargar el detalle.');
     }
   };
 
@@ -119,7 +138,7 @@ const VentasScreen = () => {
         contentContainerStyle={{ padding: 16 }}
         ListEmptyComponent={<Text style={s.empty}>Sin ventas registradas</Text>}
         renderItem={({ item }) => (
-          <View style={s.card}>
+          <TouchableOpacity style={s.card} onPress={() => verDetalle(item)}>
             <View style={s.cardRow}>
               <Text style={s.cardTitle}>Venta #{item.id}</Text>
               <Text style={s.cardTotal}>{fmt(item.total)}</Text>
@@ -127,12 +146,15 @@ const VentasScreen = () => {
             <Text style={s.cardSub}>
               {fmtFecha(item.fecha)} · {item.canal}
             </Text>
+            {item.clientes && (
+              <Text style={s.cardCliente}>👤 {item.clientes.nombre}</Text>
+            )}
             {item.ventas_items?.map(vi => (
               <Text key={vi.id} style={s.cardItem}>
                 • {vi.productos?.nombre} x{vi.cantidad} — {fmt(vi.subtotal)}
               </Text>
             ))}
-          </View>
+          </TouchableOpacity>
         )}
       />
 
@@ -166,6 +188,27 @@ const VentasScreen = () => {
                   <Text style={s.addBtn}>＋</Text>
                 </TouchableOpacity>
               ))}
+
+            <Text style={s.sectionLabel}>Cliente (opcional)</Text>
+            <TouchableOpacity
+              style={s.clienteSelector}
+              onPress={() => setModalClientes(true)}
+            >
+              <Text
+                style={
+                  clienteSeleccionado ? s.clienteNombre : s.clientePlaceholder
+                }
+              >
+                {clienteSeleccionado
+                  ? clienteSeleccionado.nombre
+                  : 'Sin cliente — toca para asignar'}
+              </Text>
+              {clienteSeleccionado && (
+                <TouchableOpacity onPress={() => setClienteSeleccionado(null)}>
+                  <Text style={s.removeBtn}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </TouchableOpacity>
 
             {items.length > 0 && (
               <>
@@ -202,6 +245,126 @@ const VentasScreen = () => {
               {saving ? 'Guardando...' : `Registrar venta · ${fmt(total)}`}
             </Text>
           </TouchableOpacity>
+        </View>
+      </Modal>
+      <Modal
+        visible={modalDetalle}
+        animationType="slide"
+        onRequestClose={() => setModalDetalle(false)}
+      >
+        <View style={s.modal}>
+          <View style={s.modalHeader}>
+            <Text style={s.modalTitle}>Venta #{ventaDetalle?.id}</Text>
+            <TouchableOpacity onPress={() => setModalDetalle(false)}>
+              <Text style={s.close}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          {ventaDetalle && (
+            <ScrollView contentContainerStyle={{ padding: 16 }}>
+              <View style={s.detalleSeccion}>
+                <Text style={s.detalleLabel}>Fecha</Text>
+                <Text style={s.detalleValor}>
+                  {fmtFecha(ventaDetalle.fecha)}
+                </Text>
+              </View>
+              <View style={s.detalleSeccion}>
+                <Text style={s.detalleLabel}>Canal</Text>
+                <Text style={s.detalleValor}>{ventaDetalle.canal}</Text>
+              </View>
+              {ventaDetalle.clientes && (
+                <View style={s.detalleSeccion}>
+                  <Text style={s.detalleLabel}>Cliente</Text>
+                  <Text style={s.detalleValor}>
+                    {ventaDetalle.clientes.nombre}
+                  </Text>
+                </View>
+              )}
+              {ventaDetalle.notas ? (
+                <View style={s.detalleSeccion}>
+                  <Text style={s.detalleLabel}>Notas</Text>
+                  <Text style={s.detalleValor}>{ventaDetalle.notas}</Text>
+                </View>
+              ) : null}
+
+              <Text style={s.sectionLabel}>Productos</Text>
+              {ventaDetalle.ventas_items?.map(vi => (
+                <View key={vi.id} style={s.detalleRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.detalleRowNombre}>
+                      {vi.productos?.nombre}
+                    </Text>
+                    <Text style={s.detalleLabel}>
+                      x{vi.cantidad} · {fmt(vi.precio_unitario)} c/u
+                    </Text>
+                  </View>
+                  <Text style={s.detalleRowCant}>{fmt(vi.subtotal)}</Text>
+                </View>
+              ))}
+
+              <View
+                style={[
+                  s.detalleSeccion,
+                  { marginTop: 16, borderTopWidth: 2, borderColor: '#eee' },
+                ]}
+              >
+                <Text
+                  style={[
+                    s.detalleLabel,
+                    { fontSize: 16, fontWeight: 'bold', color: '#333' },
+                  ]}
+                >
+                  Total
+                </Text>
+                <Text
+                  style={[
+                    s.detalleValor,
+                    { fontSize: 16, color: '#2DC653', fontWeight: '700' },
+                  ]}
+                >
+                  {fmt(ventaDetalle.total)}
+                </Text>
+              </View>
+            </ScrollView>
+          )}
+        </View>
+      </Modal>
+      <Modal
+        visible={modalClientes}
+        animationType="slide"
+        onRequestClose={() => setModalClientes(false)}
+      >
+        <View style={s.modal}>
+          <View style={s.modalHeader}>
+            <Text style={s.modalTitle}>Seleccionar cliente</Text>
+            <TouchableOpacity onPress={() => setModalClientes(false)}>
+              <Text style={s.close}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={clientes}
+            keyExtractor={c => String(c.id)}
+            contentContainerStyle={{ padding: 16 }}
+            ListEmptyComponent={
+              <Text style={s.empty}>Sin clientes registrados</Text>
+            }
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={s.prodRow}
+                onPress={() => {
+                  setClienteSeleccionado(item);
+                  setModalClientes(false);
+                }}
+              >
+                <View>
+                  <Text style={s.prodNombre}>{item.nombre}</Text>
+                  {item.telefono && (
+                    <Text style={s.prodPrecio}>{item.telefono}</Text>
+                  )}
+                </View>
+                <Text style={s.arrow}>›</Text>
+              </TouchableOpacity>
+            )}
+          />
         </View>
       </Modal>
     </View>
@@ -307,6 +470,41 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   btnGuardarText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  clienteSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+  },
+  clienteNombre: { fontSize: 14, color: '#333', fontWeight: '600' },
+  clientePlaceholder: { fontSize: 14, color: '#aaa' },
+  arrow: { fontSize: 22, color: '#ccc' },
+  cardCliente: { fontSize: 12, color: '#457B9D', marginBottom: 4 },
+  detalleSeccion: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  detalleLabel: { fontSize: 13, color: '#888' },
+  detalleValor: { fontSize: 13, color: '#333', fontWeight: '600' },
+  detalleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  detalleRowNombre: { fontSize: 14, color: '#333', fontWeight: '600' },
+  detalleRowCant: { fontSize: 14, color: '#2DC653', fontWeight: '700' },
 });
 
 export default VentasScreen;
