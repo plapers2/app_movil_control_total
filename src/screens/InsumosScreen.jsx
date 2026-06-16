@@ -30,6 +30,8 @@ const InsumosScreen = () => {
   const [saving, setSaving] = useState(false);
   const [editando, setEditando] = useState(null);
   const [modalUnidad, setModalUnidad] = useState(false);
+  const [insumoDetalle, setInsumoDetalle] = useState(null);
+  const [modalDetalle, setModalDetalle] = useState(false);
 
   const [form, setForm] = useState({
     nombre: '',
@@ -114,6 +116,16 @@ const InsumosScreen = () => {
     ]);
   };
 
+  const verDetalle = async insumo => {
+    try {
+      const res = await client.get(`/insumos/${insumo.id}`);
+      setInsumoDetalle(res.data.data);
+      setModalDetalle(true);
+    } catch {
+      Alert.alert('Error', 'No se pudo cargar el detalle.');
+    }
+  };
+
   const stockBajo = item =>
     Number(item.stock_actual) <= Number(item.stock_minimo);
 
@@ -144,7 +156,10 @@ const InsumosScreen = () => {
           <Text style={s.empty}>Sin insumos registrados</Text>
         }
         renderItem={({ item }) => (
-          <View style={[s.card, stockBajo(item) && s.cardAlert]}>
+          <TouchableOpacity
+            style={[s.card, stockBajo(item) && s.cardAlert]}
+            onPress={() => verDetalle(item)}
+          >
             <View style={s.cardRow}>
               <Text style={s.cardNombre}>{item.nombre}</Text>
               <View style={s.actions}>
@@ -177,7 +192,7 @@ const InsumosScreen = () => {
               </Text>
             </View>
             {stockBajo(item) && <Text style={s.alertText}>⚠️ Stock bajo</Text>}
-          </View>
+          </TouchableOpacity>
         )}
       />
 
@@ -322,6 +337,76 @@ const InsumosScreen = () => {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <Modal
+        visible={modalDetalle}
+        animationType="slide"
+        onRequestClose={() => setModalDetalle(false)}
+      >
+        <View style={s.modal}>
+          <View style={s.modalHeader}>
+            <Text style={s.modalTitle}>{insumoDetalle?.nombre}</Text>
+            <TouchableOpacity onPress={() => setModalDetalle(false)}>
+              <Text style={s.close}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          {insumoDetalle && (
+            <View style={{ padding: 16 }}>
+              <View style={s.detalleSeccion}>
+                <Text style={s.detalleLabel}>Stock actual</Text>
+                <Text
+                  style={[
+                    s.detalleValor,
+                    stockBajo(insumoDetalle) ? s.low : s.ok,
+                  ]}
+                >
+                  {insumoDetalle.stock_actual} {insumoDetalle.unidad_medida}
+                </Text>
+              </View>
+              <View style={s.detalleSeccion}>
+                <Text style={s.detalleLabel}>Stock mínimo</Text>
+                <Text style={s.detalleValor}>
+                  {insumoDetalle.stock_minimo} {insumoDetalle.unidad_medida}
+                </Text>
+              </View>
+              <View style={s.detalleSeccion}>
+                <Text style={s.detalleLabel}>Precio por unidad</Text>
+                <Text style={s.detalleValor}>
+                  {fmt(insumoDetalle.precio_unidad)}
+                </Text>
+              </View>
+
+              <Text
+                style={[
+                  s.label,
+                  {
+                    marginTop: 20,
+                    marginBottom: 8,
+                    fontSize: 13,
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    color: '#888',
+                  },
+                ]}
+              >
+                Productos que lo usan
+              </Text>
+              {insumoDetalle.recetas?.length > 0 ? (
+                insumoDetalle.recetas.map(r => (
+                  <View key={r.id} style={s.detalleSeccion}>
+                    <Text style={s.detalleValor}>{r.productos?.nombre}</Text>
+                    <Text style={s.detalleLabel}>
+                      {r.cantidad} {insumoDetalle.unidad_medida} por unidad
+                    </Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={s.empty}>No está asociado a ningún producto</Text>
+              )}
+            </View>
+          )}
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -450,6 +535,16 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   btnGuardarText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  detalleSeccion: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  detalleLabel: { fontSize: 13, color: '#888' },
+  detalleValor: { fontSize: 13, color: '#333', fontWeight: '600' },
 });
 
 export default InsumosScreen;
