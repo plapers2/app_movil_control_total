@@ -195,6 +195,7 @@ const ProduccionScreen = () => {
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
   const [loteDetalle, setLoteDetalle] = useState(null);
   const [modalDetalle, setModalDetalle] = useState(false);
+  const [filtroProducto, setFiltroProducto] = useState(null);
 
   const cargar = useCallback(async () => {
     try {
@@ -207,6 +208,18 @@ const ProduccionScreen = () => {
     } catch {}
     setLoading(false);
   }, []);
+
+  const productosEnLotes = productos.filter(p =>
+    lotes.some(l =>
+      l.lotes_produccion_items?.some(i => i.productos_id === p.id),
+    ),
+  );
+
+  const lotesFiltrados = filtroProducto
+    ? lotes.filter(l =>
+        l.lotes_produccion_items?.some(i => i.productos_id === filtroProducto),
+      )
+    : lotes;
 
   useFocusEffect(
     useCallback(() => {
@@ -276,8 +289,50 @@ const ProduccionScreen = () => {
         </TouchableOpacity>
       </View>
 
+      {productosEnLotes.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ flexGrow: 0 }}
+          contentContainerStyle={[s.filtros, { flexGrow: 1 }]}
+        >
+          <TouchableOpacity
+            style={[s.filtroChip, !filtroProducto && s.filtroChipActivo]}
+            onPress={() => setFiltroProducto(null)}
+          >
+            <Text
+              style={[
+                s.filtroChipText,
+                !filtroProducto && s.filtroChipTextActivo,
+              ]}
+            >
+              Todos
+            </Text>
+          </TouchableOpacity>
+          {productosEnLotes.map(p => (
+            <TouchableOpacity
+              key={p.id}
+              style={[
+                s.filtroChip,
+                filtroProducto === p.id && s.filtroChipActivo,
+              ]}
+              onPress={() => setFiltroProducto(p.id)}
+            >
+              <Text
+                style={[
+                  s.filtroChipText,
+                  filtroProducto === p.id && s.filtroChipTextActivo,
+                ]}
+              >
+                {p.nombre}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
       <FlatList
-        data={lotes}
+        data={lotesFiltrados}
         keyExtractor={item => String(item.id)}
         contentContainerStyle={{ padding: 16 }}
         ListEmptyComponent={<Text style={s.empty}>Sin lotes registrados</Text>}
@@ -634,6 +689,31 @@ const s = StyleSheet.create({
   },
   detalleRowNombre: { fontSize: 14, color: '#333' },
   detalleRowCant: { fontSize: 14, color: '#457B9D', fontWeight: '600' },
+  filtros: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderTopWidth: 1,
+    borderColor: '#eee',
+    flexGrow: 0,
+  },
+  filtroChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#fff',
+    alignSelf: 'center', // ← agrega esto
+  },
+  filtroChipActivo: {
+    backgroundColor: '#E63946',
+    borderColor: '#E63946',
+  },
+  filtroChipText: { fontSize: 13, color: '#888' },
+  filtroChipTextActivo: { color: '#fff', fontWeight: '600' },
 });
 
 export default ProduccionScreen;
