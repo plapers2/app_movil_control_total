@@ -29,6 +29,8 @@ const CajaScreen = () => {
     monto: '',
     descripcion: '',
   });
+  const [movDetalle, setMovDetalle] = useState(null);
+  const [modalDetalle, setModalDetalle] = useState(false);
 
   const hoy = new Date();
   const desde = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(
@@ -85,6 +87,11 @@ const CajaScreen = () => {
     }
   };
 
+  const verDetalle = mov => {
+    setMovDetalle(mov);
+    setModalDetalle(true);
+  };
+
   if (loading)
     return (
       <View style={s.center}>
@@ -138,7 +145,7 @@ const CajaScreen = () => {
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
         ListEmptyComponent={<Text style={s.empty}>Sin movimientos</Text>}
         renderItem={({ item }) => (
-          <View style={s.card}>
+          <TouchableOpacity style={s.card} onPress={() => verDetalle(item)}>
             <View style={s.cardRow}>
               <View style={{ flex: 1 }}>
                 <Text style={s.cardDesc}>{item.descripcion}</Text>
@@ -156,7 +163,7 @@ const CajaScreen = () => {
                 {fmt(item.monto)}
               </Text>
             </View>
-          </View>
+          </TouchableOpacity>
         )}
       />
 
@@ -254,6 +261,73 @@ const CajaScreen = () => {
               {saving ? 'Guardando...' : 'Guardar'}
             </Text>
           </TouchableOpacity>
+        </View>
+      </Modal>
+      <Modal
+        visible={modalDetalle}
+        animationType="slide"
+        onRequestClose={() => setModalDetalle(false)}
+      >
+        <View style={s.modal}>
+          <View style={s.modalHeader}>
+            <Text style={s.modalTitle}>Detalle movimiento</Text>
+            <TouchableOpacity onPress={() => setModalDetalle(false)}>
+              <Text style={s.close}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          {movDetalle && (
+            <ScrollView contentContainerStyle={{ padding: 16 }}>
+              <View style={s.detalleSeccion}>
+                <Text style={s.detalleLabel}>Tipo</Text>
+                <Text
+                  style={[
+                    s.detalleValor,
+                    movDetalle.tipo === 'ingreso' ? s.ingreso : s.gasto,
+                  ]}
+                >
+                  {movDetalle.tipo.charAt(0).toUpperCase() +
+                    movDetalle.tipo.slice(1)}
+                </Text>
+              </View>
+              <View style={s.detalleSeccion}>
+                <Text style={s.detalleLabel}>Categoría</Text>
+                <Text style={s.detalleValor}>{movDetalle.categoria}</Text>
+              </View>
+              <View style={s.detalleSeccion}>
+                <Text style={s.detalleLabel}>Fecha</Text>
+                <Text style={s.detalleValor}>{fmtFecha(movDetalle.fecha)}</Text>
+              </View>
+              <View style={s.detalleSeccion}>
+                <Text style={s.detalleLabel}>Descripción</Text>
+                <Text style={s.detalleValor}>{movDetalle.descripcion}</Text>
+              </View>
+              <View
+                style={[
+                  s.detalleSeccion,
+                  { marginTop: 16, borderTopWidth: 2, borderColor: '#eee' },
+                ]}
+              >
+                <Text
+                  style={[
+                    s.detalleLabel,
+                    { fontSize: 16, fontWeight: 'bold', color: '#333' },
+                  ]}
+                >
+                  Monto
+                </Text>
+                <Text
+                  style={[
+                    s.detalleValor,
+                    { fontSize: 16, fontWeight: '700' },
+                    movDetalle.tipo === 'ingreso' ? s.ingreso : s.gasto,
+                  ]}
+                >
+                  {movDetalle.tipo === 'ingreso' ? '+' : '-'}
+                  {fmt(movDetalle.monto)}
+                </Text>
+              </View>
+            </ScrollView>
+          )}
         </View>
       </Modal>
     </View>
@@ -376,6 +450,15 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   btnGuardarText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  detalleSeccion: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  detalleLabel: { fontSize: 13, color: '#888' },
+  detalleValor: { fontSize: 13, color: '#333', fontWeight: '600' },
 });
 
 export default CajaScreen;
