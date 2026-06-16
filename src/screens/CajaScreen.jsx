@@ -179,7 +179,13 @@ const CajaScreen = () => {
                 <TouchableOpacity
                   key={t}
                   style={[s.toggleBtn, form.tipo === t && s.toggleActive]}
-                  onPress={() => setForm(p => ({ ...p, tipo: t }))}
+                  onPress={() =>
+                    setForm(p => ({
+                      ...p,
+                      tipo: t,
+                      categoria: t === 'gasto' ? 'insumo' : 'venta',
+                    }))
+                  }
                 >
                   <Text
                     style={[
@@ -195,22 +201,27 @@ const CajaScreen = () => {
 
             <Text style={s.fieldLabel}>Categoría</Text>
             <View style={s.chips}>
-              {['insumo', 'servicio', 'venta', 'otro'].map(c => (
-                <TouchableOpacity
-                  key={c}
-                  style={[s.chip, form.categoria === c && s.chipActive]}
-                  onPress={() => setForm(p => ({ ...p, categoria: c }))}
-                >
-                  <Text
-                    style={[
-                      s.chipText,
-                      form.categoria === c && s.chipTextActive,
-                    ]}
+              <View style={s.chips}>
+                {(form.tipo === 'gasto'
+                  ? ['insumo', 'servicio', 'otro']
+                  : ['venta', 'otro']
+                ).map(c => (
+                  <TouchableOpacity
+                    key={c}
+                    style={[s.chip, form.categoria === c && s.chipActive]}
+                    onPress={() => setForm(p => ({ ...p, categoria: c }))}
                   >
-                    {c}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text
+                      style={[
+                        s.chipText,
+                        form.categoria === c && s.chipTextActive,
+                      ]}
+                    >
+                      {c}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
 
             <View style={s.field}>
@@ -336,7 +347,6 @@ const s = StyleSheet.create({
   toggleTextActive: { color: '#fff' },
   chips: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     paddingHorizontal: 20,
     gap: 8,
   },
