@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -33,9 +34,11 @@ const ClientesScreen = () => {
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    cargar();
-  }, [cargar]);
+  useFocusEffect(
+    useCallback(() => {
+      cargar();
+    }, [cargar]),
+  );
 
   const abrirNuevo = () => {
     setEditando(null);
