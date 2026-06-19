@@ -11,6 +11,7 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  Pressable,
 } from 'react-native';
 import client from '../api/client';
 import { getFechaHoyLocal } from '../utils/date';
@@ -421,45 +422,32 @@ const ProduccionScreen = () => {
       </View>
       <FiltroPeriodo periodo={periodo} onChange={cambiarPeriodo} />
       {productosEnLotes.length > 0 && (
-        <ScrollView
+        <FlatList
+          data={[{ id: '__todos__', nombre: 'Todos' }, ...productosEnLotes]}
+          keyExtractor={item => String(item.id)}
           horizontal
           showsHorizontalScrollIndicator={false}
           style={{ flexGrow: 0 }}
-          contentContainerStyle={[s.filtros, { flexGrow: 1 }]}
-        >
-          <TouchableOpacity
-            style={[s.filtroChip, !filtroProducto && s.filtroChipActivo]}
-            onPress={() => setFiltroProducto(null)}
-          >
-            <Text
-              style={[
-                s.filtroChipText,
-                !filtroProducto && s.filtroChipTextActivo,
-              ]}
-            >
-              Todos
-            </Text>
-          </TouchableOpacity>
-          {productosEnLotes.map(p => (
-            <TouchableOpacity
-              key={p.id}
-              style={[
-                s.filtroChip,
-                filtroProducto === p.id && s.filtroChipActivo,
-              ]}
-              onPress={() => setFiltroProducto(p.id)}
-            >
-              <Text
-                style={[
-                  s.filtroChipText,
-                  filtroProducto === p.id && s.filtroChipTextActivo,
-                ]}
+          contentContainerStyle={s.filtros}
+          renderItem={({ item }) => {
+            const esTodos = item.id === '__todos__';
+            const activo = esTodos
+              ? !filtroProducto
+              : filtroProducto === item.id;
+            return (
+              <Pressable
+                style={[s.filtroChip, activo && s.filtroChipActivo]}
+                onPress={() => setFiltroProducto(esTodos ? null : item.id)}
               >
-                {p.nombre}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+                <Text
+                  style={[s.filtroChipText, activo && s.filtroChipTextActivo]}
+                >
+                  {item.nombre}
+                </Text>
+              </Pressable>
+            );
+          }}
+        />
       )}
 
       <FlatList
@@ -524,14 +512,14 @@ const ProduccionScreen = () => {
 
           {/* Indicador de pasos */}
           <View style={s.pasos}>
-            <View style={[s.paso, paso >= 1 && s.pasoActivo]}>
+            <View style={s.paso}>
               <Text style={[s.pasoNum, paso >= 1 && s.pasoNumActivo]}>1</Text>
               <Text style={[s.pasoLabel, paso >= 1 && s.pasoLabelActivo]}>
                 Producto
               </Text>
             </View>
             <View style={s.pasoDivider} />
-            <View style={[s.paso, paso >= 2 && s.pasoActivo]}>
+            <View style={s.paso}>
               <Text style={[s.pasoNum, paso >= 2 && s.pasoNumActivo]}>2</Text>
               <Text style={[s.pasoLabel, paso >= 2 && s.pasoLabelActivo]}>
                 Insumos
@@ -821,7 +809,6 @@ const s = StyleSheet.create({
     borderColor: '#eee',
   },
   paso: { alignItems: 'center', flex: 1 },
-  pasoActivo: {},
   pasoNum: {
     width: 28,
     height: 28,
@@ -958,12 +945,12 @@ const s = StyleSheet.create({
   filtros: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    gap: 8,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderTopWidth: 1,
     borderColor: '#eee',
     flexGrow: 0,
+    alignItems: 'center',
   },
   filtroChip: {
     paddingHorizontal: 14,
@@ -972,13 +959,14 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
     backgroundColor: '#fff',
-    alignSelf: 'center', // ← agrega esto
+    flexShrink: 0,
+    marginRight: 8,
   },
   filtroChipActivo: {
     backgroundColor: '#E63946',
     borderColor: '#E63946',
   },
-  filtroChipText: { fontSize: 13, color: '#888' },
+  filtroChipText: { fontSize: 13, lineHeight: 18, height: 18, color: '#888' },
   filtroChipTextActivo: { color: '#fff', fontWeight: '600' },
   actions: {
     flexDirection: 'row',
