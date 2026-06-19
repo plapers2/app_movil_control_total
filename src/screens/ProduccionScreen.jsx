@@ -221,6 +221,7 @@ const ProduccionScreen = () => {
 
   const cargar = useCallback(
     async (periodoActual = periodo) => {
+      console.log('🔍 Pidiendo produccion con periodo:', periodoActual);
       try {
         const [l, p] = await Promise.all([
           client.get(`/produccion?periodo=${periodoActual}&page=1&limit=10`),
