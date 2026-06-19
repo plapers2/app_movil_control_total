@@ -191,11 +191,13 @@ const ProductosScreen = () => {
             <View style={s.cardRow}>
               <View style={{ flex: 1 }}>
                 <Text style={s.cardNombre}>{item.nombre}</Text>
-                {item.descripcion ? (
+                {rol === 'admin' && item.descripcion ? (
                   <Text style={s.cardDesc}>{item.descripcion}</Text>
                 ) : null}
                 <Text style={s.cardPrecio}>{fmt(item.precio_venta)}</Text>
-                <Text style={s.cardStock}>
+                <Text
+                  style={[s.cardStock, rol !== 'admin' && s.cardStockGrande]}
+                >
                   Stock: {Number(item.stock_actual || 0)} unidades
                 </Text>
               </View>
@@ -213,7 +215,7 @@ const ProductosScreen = () => {
                 </View>
               )}
             </View>
-            {item.recetas?.length > 0 && (
+            {rol === 'admin' && item.recetas?.length > 0 && (
               <View style={s.recetaPreview}>
                 <Text style={s.recetaLabel}>🧾 Receta: </Text>
                 <Text style={s.recetaText}>
@@ -456,6 +458,10 @@ const s = StyleSheet.create({
     color: '#457B9D',
     fontWeight: '600',
     marginTop: 2,
+  },
+  cardStockGrande: {
+    fontSize: 18,
+    marginTop: 6,
   },
   actions: { flexDirection: 'row', gap: 8, marginLeft: 8 },
   editBtn: { padding: 2 },
