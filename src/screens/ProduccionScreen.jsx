@@ -13,6 +13,7 @@ import {
   ScrollView,
 } from 'react-native';
 import client from '../api/client';
+import { getFechaHoyLocal } from '../utils/date';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 const fmtFecha = d => new Date(d).toLocaleDateString('es-CO');
@@ -252,7 +253,7 @@ const ProduccionScreen = () => {
     try {
       setSaving(true);
       await client.post('/produccion', {
-        fecha: new Date().toISOString().split('T')[0],
+        fecha: getFechaHoyLocal(),
         notas,
         items: [{ productos_id, cantidad }],
         insumos_reales, // para descuento real si el backend lo soporta

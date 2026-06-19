@@ -13,6 +13,7 @@ import {
   ScrollView,
 } from 'react-native';
 import client from '../api/client';
+import { toFechaLocal } from '../utils/date';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 const fmtFecha = d => new Date(d).toLocaleDateString('es-CO');
@@ -37,10 +38,7 @@ const CajaScreen = () => {
     2,
     '0',
   )}-01`;
-  const hasta = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(
-    2,
-    '0',
-  )}-${String(hoy.getDate()).padStart(2, '0')}`;
+  const hasta = toFechaLocal(hoy);
 
   const cargar = useCallback(async () => {
     try {

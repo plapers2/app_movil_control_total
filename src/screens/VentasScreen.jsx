@@ -12,6 +12,7 @@ import {
   ScrollView,
 } from 'react-native';
 import client from '../api/client';
+import { getFechaHoyLocal } from '../utils/date'; 
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 const fmtFecha = d => new Date(d).toLocaleDateString('es-CO');
@@ -85,7 +86,7 @@ const VentasScreen = () => {
     try {
       setSaving(true);
       await client.post('/ventas', {
-        fecha: new Date().toISOString().split('T')[0],
+        fecha: getFechaHoyLocal(),
         canal,
         clientes_id: clienteSeleccionado?.id ?? null,
         items: items.map(({ productos_id, cantidad, precio_unitario }) => ({
