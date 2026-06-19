@@ -43,13 +43,14 @@ const VentasScreen = () => {
   const [canal, setCanal] = useState('punto_venta');
   const [credito, setCredito] = useState(false);
   const [abonoInicial, setAbonoInicial] = useState('');
+  const [busquedaProducto, setBusquedaProducto] = useState('');
 
   const cargar = useCallback(
     async (periodoActual = periodo) => {
       try {
         const [v, p, c] = await Promise.all([
           client.get(`/ventas?periodo=${periodoActual}&page=1&limit=10`),
-          client.get('/productos'),
+          client.get('/productos?limit=1000'),
           client.get('/clientes'),
         ]);
         setVentas(v.data.data);
@@ -113,6 +114,7 @@ const VentasScreen = () => {
         },
       ];
     });
+    setBusquedaProducto('');
   };
 
   const quitarItem = productos_id =>
@@ -168,6 +170,7 @@ const VentasScreen = () => {
       setClienteSeleccionado(null);
       setCredito(false);
       setAbonoInicial('');
+      setBusquedaProducto('');
       cargar();
     } catch (err) {
       Alert.alert('Error', err.response?.data?.message || 'Error al guardar.');
@@ -252,21 +255,78 @@ const VentasScreen = () => {
 
           <ScrollView>
             <Text style={s.sectionLabel}>Productos disponibles</Text>
-            {productos
-              .filter(p => p.activo)
-              .map(p => (
-                <TouchableOpacity
-                  key={p.id}
-                  style={s.prodRow}
-                  onPress={() => agregarItem(p)}
-                >
-                  <View>
-                    <Text style={s.prodNombre}>{p.nombre}</Text>
-                    <Text style={s.prodPrecio}>{fmt(p.precio_venta)}</Text>
-                  </View>
-                  <Text style={s.addBtn}>＋</Text>
+            <View style={s.buscadorBox}>
+              <TextInput
+                style={s.buscadorInput}
+                value={busquedaProducto}
+                onChangeText={setBusquedaProducto}
+                placeholder="Buscar producto..."
+                placeholderTextColor="#aaa"
+              />
+              {busquedaProducto.length > 0 && (
+                <TouchableOpacity onPress={() => setBusquedaProducto('')}>
+                  <Text style={s.removeBtn}>✕</Text>
                 </TouchableOpacity>
-              ))}
+              )}
+            </View>
+
+            {busquedaProducto.trim().length > 0 && (
+              <View style={s.dropdown}>
+                {productos
+                  .filter(
+                    p =>
+                      p.activo &&
+                      p.nombre
+                        .toLowerCase()
+                        .includes(busquedaProducto.trim().toLowerCase()),
+                  )
+                  .map(p => (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={s.prodRow}
+                      onPress={() => agregarItem(p)}
+                    >
+                      <View>
+                        <Text style={s.prodNombre}>{p.nombre}</Text>
+                        <Text style={s.prodPrecio}>{fmt(p.precio_venta)}</Text>
+                      </View>
+                      <Text style={s.addBtn}>＋</Text>
+                    </TouchableOpacity>
+                  ))}
+                {!productos.some(
+                  p =>
+                    p.activo &&
+                    p.nombre
+                      .toLowerCase()
+                      .includes(busquedaProducto.trim().toLowerCase()),
+                ) && <Text style={s.empty}>Sin resultados</Text>}
+              </View>
+            )}
+
+            {items.length > 0 && (
+              <>
+                <Text style={s.sectionLabel}>Resumen</Text>
+                {items.map(i => (
+                  <View key={i.productos_id} style={s.itemRow}>
+                    <Text style={s.itemNombre}>{i.nombre}</Text>
+                    <TextInput
+                      style={s.itemCantInput}
+                      value={String(i.cantidad)}
+                      onChangeText={v => cambiarCantidad(i.productos_id, v)}
+                      keyboardType="numeric"
+                    />
+                    <Text style={s.itemSubtotal}>
+                      {fmt(i.precio_unitario * (Number(i.cantidad) || 0))}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => quitarItem(i.productos_id)}
+                    >
+                      <Text style={s.removeBtn}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </>
+            )}
 
             <Text style={s.sectionLabel}>
               Cliente{credito ? '' : ' (opcional)'}
@@ -315,7 +375,9 @@ const VentasScreen = () => {
 
             {credito && (
               <View style={s.field}>
-                <Text style={s.fieldLabel}>Abono inicial (opcional)</Text>
+                <Text style={s.fieldLabel}>
+                  Abono inicial{Number(abonoInicial) > 0 ? '' : ' (opcional)'}
+                </Text>
                 <TextInput
                   style={s.input}
                   value={abonoInicial}
@@ -327,32 +389,10 @@ const VentasScreen = () => {
             )}
 
             {items.length > 0 && (
-              <>
-                <Text style={s.sectionLabel}>Resumen</Text>
-                {items.map(i => (
-                  <View key={i.productos_id} style={s.itemRow}>
-                    <Text style={s.itemNombre}>{i.nombre}</Text>
-                    <TextInput
-                      style={s.itemCantInput}
-                      value={String(i.cantidad)}
-                      onChangeText={v => cambiarCantidad(i.productos_id, v)}
-                      keyboardType="numeric"
-                    />
-                    <Text style={s.itemSubtotal}>
-                      {fmt(i.precio_unitario * (Number(i.cantidad) || 0))}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => quitarItem(i.productos_id)}
-                    >
-                      <Text style={s.removeBtn}>✕</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-                <View style={s.totalRow}>
-                  <Text style={s.totalLabel}>Total</Text>
-                  <Text style={s.totalValue}>{fmt(total)}</Text>
-                </View>
-              </>
+              <View style={s.totalRow}>
+                <Text style={s.totalLabel}>Total</Text>
+                <Text style={s.totalValue}>{fmt(total)}</Text>
+              </View>
             )}
           </ScrollView>
 
@@ -554,6 +594,33 @@ const s = StyleSheet.create({
     paddingBottom: 6,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  buscadorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+  },
+  buscadorInput: {
+    flex: 1,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#333',
+  },
+  dropdown: {
+    marginHorizontal: 16,
+    marginTop: -8,
+    marginBottom: 8,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderRadius: 8,
+    overflow: 'hidden',
   },
   prodRow: {
     flexDirection: 'row',

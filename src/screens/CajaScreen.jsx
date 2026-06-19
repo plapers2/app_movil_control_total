@@ -35,6 +35,11 @@ const CajaScreen = () => {
   const [movDetalle, setMovDetalle] = useState(null);
   const [modalDetalle, setModalDetalle] = useState(false);
 
+  // Vincular el gasto a insumos (opcional) para sumar al inventario
+  const [insumos, setInsumos] = useState([]);
+  const [busquedaInsumo, setBusquedaInsumo] = useState('');
+  const [insumosForm, setInsumosForm] = useState([]); // [{ insumos_id, nombre, unidad_medida, cantidad }]
+
   // Filtro de periodo y paginación (lista de movimientos)
   const [periodo, setPeriodo] = useState('dia');
   const [page, setPage] = useState(1);
@@ -44,14 +49,16 @@ const CajaScreen = () => {
   const cargar = useCallback(
     async (periodoActual = periodo) => {
       try {
-        const [m, r] = await Promise.all([
+        const [m, r, i] = await Promise.all([
           client.get(`/caja?periodo=${periodoActual}&page=1&limit=10`),
           client.get(`/caja/resumen?periodo=${periodoActual}`),
+          client.get('/insumos'),
         ]);
         setMovimientos(m.data.data);
         setPage(1);
         setTotalPages(m.data.meta?.pages ?? 1);
         setResumen(r.data.data);
+        setInsumos(i.data.data);
       } catch {}
       setLoading(false);
     },
@@ -82,6 +89,32 @@ const CajaScreen = () => {
     cargar(nuevoPeriodo);
   };
 
+  const agregarInsumoForm = insumo => {
+    setInsumosForm(prev => {
+      if (prev.some(i => i.insumos_id === insumo.id)) return prev;
+      return [
+        ...prev,
+        {
+          insumos_id: insumo.id,
+          nombre: insumo.nombre,
+          unidad_medida: insumo.unidad_medida,
+          cantidad: '',
+        },
+      ];
+    });
+    setBusquedaInsumo('');
+  };
+
+  const quitarInsumoForm = insumos_id =>
+    setInsumosForm(prev => prev.filter(i => i.insumos_id !== insumos_id));
+
+  const cambiarCantidadInsumoForm = (insumos_id, valor) =>
+    setInsumosForm(prev =>
+      prev.map(i =>
+        i.insumos_id === insumos_id ? { ...i, cantidad: valor } : i,
+      ),
+    );
+
   useFocusEffect(
     useCallback(() => {
       cargar();
@@ -91,6 +124,11 @@ const CajaScreen = () => {
   const guardar = async () => {
     if (!form.monto || !form.descripcion)
       return Alert.alert('Error', 'Monto y descripción son requeridos.');
+    if (insumosForm.some(i => !Number(i.cantidad) || Number(i.cantidad) <= 0))
+      return Alert.alert(
+        'Error',
+        'Revisa las cantidades de los insumos, deben ser mayores a 0 (o quítalos de la lista).',
+      );
     try {
       setSaving(true);
       await client.post('/caja', {
@@ -99,6 +137,12 @@ const CajaScreen = () => {
         monto: Number(form.monto),
         descripcion: form.descripcion,
         fecha: getFechaHoyLocal(),
+        insumos: insumosForm.length
+          ? insumosForm.map(i => ({
+              insumos_id: i.insumos_id,
+              cantidad: Number(i.cantidad),
+            }))
+          : undefined,
       });
       setModal(false);
       setForm({
@@ -107,6 +151,8 @@ const CajaScreen = () => {
         monto: '',
         descripcion: '',
       });
+      setInsumosForm([]);
+      setBusquedaInsumo('');
       cargar();
     } catch (err) {
       Alert.alert('Error', err.response?.data?.message || 'Error al guardar.');
@@ -234,13 +280,17 @@ const CajaScreen = () => {
                 <TouchableOpacity
                   key={t}
                   style={[s.toggleBtn, form.tipo === t && s.toggleActive]}
-                  onPress={() =>
+                  onPress={() => {
                     setForm(p => ({
                       ...p,
                       tipo: t,
                       categoria: t === 'gasto' ? 'insumo' : 'venta',
-                    }))
-                  }
+                    }));
+                    if (t !== 'gasto') {
+                      setInsumosForm([]);
+                      setBusquedaInsumo('');
+                    }
+                  }}
                 >
                   <Text
                     style={[
@@ -264,7 +314,13 @@ const CajaScreen = () => {
                   <TouchableOpacity
                     key={c}
                     style={[s.chip, form.categoria === c && s.chipActive]}
-                    onPress={() => setForm(p => ({ ...p, categoria: c }))}
+                    onPress={() => {
+                      setForm(p => ({ ...p, categoria: c }));
+                      if (c !== 'insumo') {
+                        setInsumosForm([]);
+                        setBusquedaInsumo('');
+                      }
+                    }}
                   >
                     <Text
                       style={[
@@ -278,6 +334,80 @@ const CajaScreen = () => {
                 ))}
               </View>
             </View>
+
+            {form.tipo === 'gasto' && form.categoria === 'insumo' && (
+              <View style={s.field}>
+                <Text style={s.fieldLabel}>
+                  Vincular a insumos (opcional, suma al inventario)
+                </Text>
+
+                <View style={s.buscadorBox}>
+                  <TextInput
+                    style={s.buscadorInput}
+                    value={busquedaInsumo}
+                    onChangeText={setBusquedaInsumo}
+                    placeholder="Buscar insumo..."
+                    placeholderTextColor="#aaa"
+                  />
+                  {busquedaInsumo.length > 0 && (
+                    <TouchableOpacity onPress={() => setBusquedaInsumo('')}>
+                      <Text style={s.removeBtn}>✕</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {busquedaInsumo.trim().length > 0 && (
+                  <View style={s.dropdown}>
+                    {insumos
+                      .filter(
+                        i =>
+                          !insumosForm.some(f => f.insumos_id === i.id) &&
+                          i.nombre
+                            .toLowerCase()
+                            .includes(busquedaInsumo.trim().toLowerCase()),
+                      )
+                      .map(i => (
+                        <TouchableOpacity
+                          key={i.id}
+                          style={s.prodRow}
+                          onPress={() => agregarInsumoForm(i)}
+                        >
+                          <Text style={s.prodNombre}>{i.nombre}</Text>
+                          <Text style={s.prodPrecio}>{i.unidad_medida}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    {!insumos.some(
+                      i =>
+                        !insumosForm.some(f => f.insumos_id === i.id) &&
+                        i.nombre
+                          .toLowerCase()
+                          .includes(busquedaInsumo.trim().toLowerCase()),
+                    ) && <Text style={s.empty}>Sin resultados</Text>}
+                  </View>
+                )}
+
+                {insumosForm.map(i => (
+                  <View key={i.insumos_id} style={s.insumoFormRow}>
+                    <Text style={s.insumoFormNombre}>{i.nombre}</Text>
+                    <TextInput
+                      style={s.cantInput}
+                      value={i.cantidad}
+                      onChangeText={v =>
+                        cambiarCantidadInsumoForm(i.insumos_id, v)
+                      }
+                      keyboardType="numeric"
+                      placeholder="0"
+                    />
+                    <Text style={s.unidad}>{i.unidad_medida}</Text>
+                    <TouchableOpacity
+                      onPress={() => quitarInsumoForm(i.insumos_id)}
+                    >
+                      <Text style={s.removeBtn}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
 
             <View style={s.field}>
               <Text style={s.fieldLabel}>Monto *</Text>
@@ -490,6 +620,61 @@ const s = StyleSheet.create({
   chipActive: { backgroundColor: '#E63946', borderColor: '#E63946' },
   chipText: { color: '#888', fontSize: 13 },
   chipTextActive: { color: '#fff' },
+  buscadorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+  },
+  buscadorInput: {
+    flex: 1,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#333',
+  },
+  dropdown: {
+    marginTop: 4,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  prodRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  prodNombre: { fontSize: 14, color: '#333', fontWeight: '500' },
+  prodPrecio: { fontSize: 12, color: '#888' },
+  insumoFormRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderColor: '#f0f0f0',
+    gap: 8,
+  },
+  insumoFormNombre: { flex: 1, fontSize: 14, color: '#333' },
+  cantInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 6,
+    padding: 8,
+    width: 70,
+    textAlign: 'center',
+    fontSize: 14,
+    backgroundColor: '#fff',
+  },
+  unidad: { fontSize: 13, color: '#888', width: 35 },
+  removeBtn: { color: '#E63946', fontSize: 16 },
   field: { paddingHorizontal: 20, paddingTop: 8 },
   input: {
     borderWidth: 1,
