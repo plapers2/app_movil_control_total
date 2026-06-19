@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import client from '../api/client';
 import { getFechaHoyLocal } from '../utils/date';
+import { getRol } from '../store/authStore';
 import FiltroPeriodo from '../components/FiltroPeriodo';
 import BotonVerMas from '../components/BotonVerMas';
 
@@ -31,6 +32,17 @@ const VentasScreen = () => {
   const [modalClientes, setModalClientes] = useState(false);
   const [ventaDetalle, setVentaDetalle] = useState(null);
   const [modalDetalle, setModalDetalle] = useState(false);
+  const [rol, setRol] = useState(null);
+  const [modalEditar, setModalEditar] = useState(false);
+  const [ventaEditando, setVentaEditando] = useState(null);
+  const [itemsEdit, setItemsEdit] = useState([]);
+  const [canalEdit, setCanalEdit] = useState('punto_venta');
+  const [busquedaProductoEdit, setBusquedaProductoEdit] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [modalAnular, setModalAnular] = useState(false);
+  const [ventaAnulando, setVentaAnulando] = useState(null);
+  const [motivoAnular, setMotivoAnular] = useState('');
+  const [anulando, setAnulando] = useState(false);
 
   // Filtro y paginación
   const [periodo, setPeriodo] = useState('dia');
@@ -59,6 +71,8 @@ const VentasScreen = () => {
         setProductos(p.data.data);
         setClientes(c.data.data);
       } catch {}
+      const r = await getRol();
+      setRol(r);
       setLoading(false);
     },
     [periodo],
@@ -189,6 +203,117 @@ const VentasScreen = () => {
     }
   };
 
+  const abrirEditar = async venta => {
+    try {
+      const res = await client.get(`/ventas/${venta.id}`);
+      const v = res.data.data;
+      setVentaEditando(v);
+      setCanalEdit(v.canal);
+      setItemsEdit(
+        v.ventas_items.map(vi => ({
+          productos_id: vi.productos_id,
+          nombre: vi.productos?.nombre,
+          cantidad: String(vi.cantidad),
+          precio_unitario: Number(vi.precio_unitario),
+        })),
+      );
+      setBusquedaProductoEdit('');
+      setModalEditar(true);
+    } catch {
+      Alert.alert('Error', 'No se pudo cargar la venta.');
+    }
+  };
+
+  const agregarItemEdit = producto => {
+    setItemsEdit(prev => {
+      const existe = prev.find(i => i.productos_id === producto.id);
+      if (existe) {
+        return prev.map(i =>
+          i.productos_id === producto.id
+            ? { ...i, cantidad: String((Number(i.cantidad) || 0) + 1) }
+            : i,
+        );
+      }
+      return [
+        ...prev,
+        {
+          productos_id: producto.id,
+          nombre: producto.nombre,
+          cantidad: '1',
+          precio_unitario: Number(producto.precio_venta),
+        },
+      ];
+    });
+    setBusquedaProductoEdit('');
+  };
+
+  const quitarItemEdit = productos_id =>
+    setItemsEdit(prev => prev.filter(i => i.productos_id !== productos_id));
+
+  const cambiarCantidadEdit = (productos_id, valor) => {
+    setItemsEdit(prev =>
+      prev.map(i =>
+        i.productos_id === productos_id ? { ...i, cantidad: valor } : i,
+      ),
+    );
+  };
+
+  const totalEdit = itemsEdit.reduce(
+    (s, i) => s + i.precio_unitario * (Number(i.cantidad) || 0),
+    0,
+  );
+
+  const guardarEdicion = async () => {
+    if (!itemsEdit.length)
+      return Alert.alert('Error', 'La venta debe tener al menos un producto.');
+    if (itemsEdit.some(i => !Number(i.cantidad) || Number(i.cantidad) <= 0))
+      return Alert.alert(
+        'Error',
+        'Revisa las cantidades, deben ser mayores a 0.',
+      );
+    try {
+      setSavingEdit(true);
+      await client.put(`/ventas/${ventaEditando.id}`, {
+        canal: canalEdit,
+        notas: ventaEditando.notas,
+        items: itemsEdit.map(({ productos_id, cantidad, precio_unitario }) => ({
+          productos_id,
+          cantidad: Number(cantidad),
+          precio_unitario,
+        })),
+      });
+      setModalEditar(false);
+      cargar();
+    } catch (err) {
+      Alert.alert('Error', err.response?.data?.message || 'Error al editar.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const abrirAnular = venta => {
+    setVentaAnulando(venta);
+    setMotivoAnular('');
+    setModalAnular(true);
+  };
+
+  const confirmarAnular = async () => {
+    if (!motivoAnular.trim())
+      return Alert.alert('Error', 'Debes indicar un motivo.');
+    try {
+      setAnulando(true);
+      await client.delete(`/ventas/${ventaAnulando.id}`, {
+        data: { motivo: motivoAnular.trim() },
+      });
+      setModalAnular(false);
+      cargar();
+    } catch (err) {
+      Alert.alert('Error', err.response?.data?.message || 'Error al anular.');
+    } finally {
+      setAnulando(false);
+    }
+  };
+
   if (loading)
     return (
       <View style={s.center}>
@@ -229,6 +354,19 @@ const VentasScreen = () => {
                 • {vi.productos?.nombre} x{vi.cantidad} — {fmt(vi.subtotal)}
               </Text>
             ))}
+            {rol === 'admin' && (
+              <View style={s.actions}>
+                <TouchableOpacity
+                  onPress={() => abrirEditar(item)}
+                  style={s.editBtn}
+                >
+                  <Text>✏️</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => abrirAnular(item)}>
+                  <Text>🗑</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </TouchableOpacity>
         )}
         ListFooterComponent={
@@ -537,6 +675,177 @@ const VentasScreen = () => {
           />
         </View>
       </Modal>
+
+      <Modal
+        visible={modalEditar}
+        animationType="slide"
+        onRequestClose={() => setModalEditar(false)}
+      >
+        <View style={s.modal}>
+          <View style={s.modalHeader}>
+            <Text style={s.modalTitle}>Editar venta #{ventaEditando?.id}</Text>
+            <TouchableOpacity onPress={() => setModalEditar(false)}>
+              <Text style={s.close}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView>
+            {ventaEditando?.clientes && (
+              <View style={s.field}>
+                <Text style={s.fieldLabel}>Cliente (no editable)</Text>
+                <Text style={s.detalleValor}>
+                  {ventaEditando.clientes.nombre}
+                </Text>
+              </View>
+            )}
+
+            <Text style={s.sectionLabel}>Canal</Text>
+            <View style={s.toggle}>
+              {[
+                { val: 'punto_venta', label: 'Punto de venta' },
+                { val: 'domicilio', label: 'Domicilio' },
+              ].map(opt => (
+                <TouchableOpacity
+                  key={opt.val}
+                  style={[s.toggleBtn, canalEdit === opt.val && s.toggleActive]}
+                  onPress={() => setCanalEdit(opt.val)}
+                >
+                  <Text
+                    style={[
+                      s.toggleText,
+                      canalEdit === opt.val && s.toggleTextActive,
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={s.sectionLabel}>Agregar producto</Text>
+            <View style={s.buscadorBox}>
+              <TextInput
+                style={s.buscadorInput}
+                value={busquedaProductoEdit}
+                onChangeText={setBusquedaProductoEdit}
+                placeholder="Buscar producto..."
+                placeholderTextColor="#aaa"
+              />
+              {busquedaProductoEdit.length > 0 && (
+                <TouchableOpacity onPress={() => setBusquedaProductoEdit('')}>
+                  <Text style={s.removeBtn}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {busquedaProductoEdit.trim().length > 0 && (
+              <View style={s.dropdown}>
+                {productos
+                  .filter(
+                    p =>
+                      p.activo &&
+                      p.nombre
+                        .toLowerCase()
+                        .includes(busquedaProductoEdit.trim().toLowerCase()),
+                  )
+                  .map(p => (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={s.prodRow}
+                      onPress={() => agregarItemEdit(p)}
+                    >
+                      <View>
+                        <Text style={s.prodNombre}>{p.nombre}</Text>
+                        <Text style={s.prodPrecio}>{fmt(p.precio_venta)}</Text>
+                      </View>
+                      <Text style={s.addBtn}>＋</Text>
+                    </TouchableOpacity>
+                  ))}
+              </View>
+            )}
+
+            <Text style={s.sectionLabel}>Productos de la venta</Text>
+            {itemsEdit.map(i => (
+              <View key={i.productos_id} style={s.itemRow}>
+                <Text style={s.itemNombre}>{i.nombre}</Text>
+                <TextInput
+                  style={s.itemCantInput}
+                  value={String(i.cantidad)}
+                  onChangeText={v => cambiarCantidadEdit(i.productos_id, v)}
+                  keyboardType="numeric"
+                />
+                <Text style={s.itemSubtotal}>
+                  {fmt(i.precio_unitario * (Number(i.cantidad) || 0))}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => quitarItemEdit(i.productos_id)}
+                >
+                  <Text style={s.removeBtn}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            <View style={s.totalRow}>
+              <Text style={s.totalLabel}>Total</Text>
+              <Text style={s.totalValue}>{fmt(totalEdit)}</Text>
+            </View>
+          </ScrollView>
+
+          <TouchableOpacity
+            style={[s.btnGuardar, savingEdit && { opacity: 0.6 }]}
+            onPress={guardarEdicion}
+            disabled={savingEdit}
+          >
+            <Text style={s.btnGuardarText}>
+              {savingEdit ? 'Guardando...' : 'Guardar cambios'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={modalAnular}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setModalAnular(false)}
+      >
+        <View style={s.overlay}>
+          <View style={s.confirmBox}>
+            <Text style={s.confirmTitle}>
+              Anular venta #{ventaAnulando?.id}
+            </Text>
+            <Text style={s.confirmText}>
+              El stock vendido se devolverá al inventario. Esta acción queda
+              registrada.
+            </Text>
+            <Text style={s.fieldLabel}>Motivo *</Text>
+            <TextInput
+              style={[s.input, { minHeight: 70 }]}
+              value={motivoAnular}
+              onChangeText={setMotivoAnular}
+              placeholder="Ej: Error al registrar, cliente canceló..."
+              multiline
+            />
+            <View style={s.confirmActions}>
+              <TouchableOpacity
+                style={s.confirmCancelBtn}
+                onPress={() => setModalAnular(false)}
+              >
+                <Text style={s.confirmCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.confirmDeleteBtn, anulando && { opacity: 0.6 }]}
+                onPress={confirmarAnular}
+                disabled={anulando}
+              >
+                <Text style={s.confirmDeleteText}>
+                  {anulando ? 'Anulando...' : 'Anular venta'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -744,6 +1053,56 @@ const s = StyleSheet.create({
   },
   detalleRowNombre: { fontSize: 14, color: '#333', fontWeight: '600' },
   detalleRowCant: { fontSize: 14, color: '#2DC653', fontWeight: '700' },
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 16,
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderColor: '#f0f0f0',
+    paddingTop: 8,
+  },
+  editBtn: { marginRight: 4 },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  confirmBox: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+  },
+  confirmTitle: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  confirmText: { fontSize: 13, color: '#888', marginBottom: 12 },
+  confirmActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+  },
+  confirmCancelBtn: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    alignItems: 'center',
+  },
+  confirmCancelText: { color: '#888', fontWeight: '600' },
+  confirmDeleteBtn: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#E63946',
+    alignItems: 'center',
+  },
+  confirmDeleteText: { color: '#fff', fontWeight: '600' },
 });
 
 export default VentasScreen;

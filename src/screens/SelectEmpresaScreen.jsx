@@ -8,7 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import client from '../api/client';
-import { saveToken, saveEmpresa } from '../store/authStore';
+import { saveToken, saveEmpresa, saveRol } from '../store/authStore';
 
 const SelectEmpresaScreen = ({ navigation, route }) => {
   const empresas = route.params?.empresas || [];
@@ -20,7 +20,8 @@ const SelectEmpresaScreen = ({ navigation, route }) => {
       });
       await saveToken(res.data.data.token);
       await saveEmpresa(membresia.empresas);
-      navigation.replace('Main');
+      await saveRol(res.data.data.rol);
+      navigation.replace('Main', { rol: res.data.data.rol });
     } catch (err) {
       Alert.alert('Error', 'No se pudo seleccionar la empresa.');
     }

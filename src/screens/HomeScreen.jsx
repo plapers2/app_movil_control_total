@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import client from '../api/client';
-import { getEmpresa, clearSession } from '../store/authStore';
+import { getEmpresa, clearSession, getRol } from '../store/authStore';
 import FiltroPeriodo from '../components/FiltroPeriodo';
 
 const Card = ({ label, value, color }) => (
@@ -26,6 +26,7 @@ const HomeScreen = () => {
   const [deudas, setDeudas] = useState(null);
   const [loading, setLoading] = useState(true);
   const [periodo, setPeriodo] = useState('dia');
+  const [rol, setRol] = useState(null);
 
   const cargarResumen = async periodoActual => {
     try {
@@ -46,7 +47,9 @@ const HomeScreen = () => {
       setLoading(true);
       const load = async () => {
         const e = await getEmpresa();
+        const r = await getRol();
         setEmpresa(e);
+        setRol(r);
         await Promise.all([cargarResumen(periodo), cargarDeudas()]);
         setLoading(false);
       };
@@ -132,12 +135,17 @@ const HomeScreen = () => {
       <View style={s.grid}>
         {[
           { label: '📦 Ventas', screen: 'Ventas' },
-          { label: '🧂 Insumos', screen: 'Insumos' },
+          ...(rol === 'admin'
+            ? [{ label: '🧂 Insumos', screen: 'Insumos' }]
+            : []),
           { label: '🫓 Productos', screen: 'Productos' },
           { label: '🏭 Producción', screen: 'Produccion' },
           { label: '👥 Clientes', screen: 'Clientes' },
           { label: '💰 Caja', screen: 'Caja' },
           { label: '🧾 Deudas', screen: 'Deudas' },
+          ...(rol === 'admin'
+            ? [{ label: '👤 Usuarios', screen: 'Usuarios' }]
+            : []),
         ].map(item => (
           <TouchableOpacity
             key={item.screen}

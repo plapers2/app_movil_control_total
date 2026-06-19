@@ -13,6 +13,7 @@ import {
   ScrollView,
 } from 'react-native';
 import client from '../api/client';
+import { getRol } from '../store/authStore';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 
@@ -20,6 +21,7 @@ const ProductosScreen = () => {
   const [productos, setProductos] = useState([]);
   const [insumos, setInsumos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [rol, setRol] = useState(null);
   const [modal, setModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editando, setEditando] = useState(null);
@@ -43,6 +45,8 @@ const ProductosScreen = () => {
       setProductos(p.data.data);
       setInsumos(i.data.data);
     } catch {}
+    const r = await getRol();
+    setRol(r);
     setLoading(false);
   }, []);
 
@@ -168,9 +172,11 @@ const ProductosScreen = () => {
     <View style={s.container}>
       <View style={s.header}>
         <Text style={s.title}>Productos</Text>
-        <TouchableOpacity style={s.btnNew} onPress={abrirNuevo}>
-          <Text style={s.btnNewText}>+ Nuevo</Text>
-        </TouchableOpacity>
+        {rol === 'admin' && (
+          <TouchableOpacity style={s.btnNew} onPress={abrirNuevo}>
+            <Text style={s.btnNewText}>+ Nuevo</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <FlatList
@@ -193,17 +199,19 @@ const ProductosScreen = () => {
                   Stock: {Number(item.stock_actual || 0)} unidades
                 </Text>
               </View>
-              <View style={s.actions}>
-                <TouchableOpacity
-                  onPress={() => abrirEditar(item)}
-                  style={s.editBtn}
-                >
-                  <Text>✏️</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => eliminar(item)}>
-                  <Text>🗑</Text>
-                </TouchableOpacity>
-              </View>
+              {rol === 'admin' && (
+                <View style={s.actions}>
+                  <TouchableOpacity
+                    onPress={() => abrirEditar(item)}
+                    style={s.editBtn}
+                  >
+                    <Text>✏️</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => eliminar(item)}>
+                    <Text>🗑</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
             {item.recetas?.length > 0 && (
               <View style={s.recetaPreview}>

@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import client from '../api/client';
 import { getFechaHoyLocal } from '../utils/date';
+import { getRol } from '../store/authStore';
 import FiltroPeriodo from '../components/FiltroPeriodo';
 import BotonVerMas from '../components/BotonVerMas';
 
@@ -199,6 +200,17 @@ const ProduccionScreen = () => {
   const [loteDetalle, setLoteDetalle] = useState(null);
   const [modalDetalle, setModalDetalle] = useState(false);
   const [filtroProducto, setFiltroProducto] = useState(null);
+  const [rol, setRol] = useState(null);
+  const [modalEditar, setModalEditar] = useState(false);
+  const [loteEditando, setLoteEditando] = useState(null);
+  const [cantidadEdit, setCantidadEdit] = useState('1');
+  const [insumosEdit, setInsumosEdit] = useState([]);
+  const [notasEdit, setNotasEdit] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [modalAnular, setModalAnular] = useState(false);
+  const [loteAnulando, setLoteAnulando] = useState(null);
+  const [motivoAnular, setMotivoAnular] = useState('');
+  const [anulando, setAnulando] = useState(false);
 
   // Filtro de periodo y paginación
   const [periodo, setPeriodo] = useState('dia');
@@ -218,6 +230,8 @@ const ProduccionScreen = () => {
         setTotalPages(l.data.meta?.pages ?? 1);
         setProductos(p.data.data);
       } catch {}
+      const r = await getRol();
+      setRol(r);
       setLoading(false);
     },
     [periodo],
@@ -283,6 +297,85 @@ const ProduccionScreen = () => {
       setModalDetalle(true);
     } catch {
       Alert.alert('Error', 'No se pudo cargar el detalle.');
+    }
+  };
+
+  const abrirEditar = async lote => {
+    try {
+      const res = await client.get(`/produccion/${lote.id}`);
+      const l = res.data.data;
+      setLoteEditando(l);
+      setNotasEdit(l.notas || '');
+      // Solo soporta editar lotes de un solo item (que es como se crean hoy)
+      const item = l.lotes_produccion_items?.[0];
+      setCantidadEdit(item ? String(item.cantidad) : '1');
+      setInsumosEdit(
+        (l.movimientos_insumos || []).map(m => ({
+          insumos_id: m.insumos_id,
+          nombre: m.insumos?.nombre || '',
+          unidad: m.insumos?.unidad_medida || '',
+          cantidad: String(m.cantidad),
+        })),
+      );
+      setModalEditar(true);
+    } catch {
+      Alert.alert('Error', 'No se pudo cargar el lote.');
+    }
+  };
+
+  const cambiarInsumoEdit = (idx, v) => {
+    setInsumosEdit(prev =>
+      prev.map((i, n) => (n === idx ? { ...i, cantidad: v } : i)),
+    );
+  };
+
+  const guardarEdicion = async () => {
+    const cantNum = Number(cantidadEdit);
+    if (!cantNum || cantNum <= 0)
+      return Alert.alert('Error', 'La cantidad debe ser mayor a 0.');
+    if (insumosEdit.some(i => i.cantidad !== '' && Number(i.cantidad) < 0))
+      return Alert.alert('Error', 'Revisa las cantidades de los insumos.');
+
+    const item = loteEditando.lotes_produccion_items?.[0];
+    try {
+      setSavingEdit(true);
+      await client.put(`/produccion/${loteEditando.id}`, {
+        notas: notasEdit,
+        items: [{ productos_id: item.productos_id, cantidad: cantNum }],
+        insumos_reales: insumosEdit.map(i => ({
+          insumos_id: i.insumos_id,
+          cantidad: Number(i.cantidad) || 0,
+        })),
+      });
+      setModalEditar(false);
+      cargar();
+    } catch (err) {
+      Alert.alert('Error', err.response?.data?.message || 'Error al editar.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const abrirAnular = lote => {
+    setLoteAnulando(lote);
+    setMotivoAnular('');
+    setModalAnular(true);
+  };
+
+  const confirmarAnular = async () => {
+    if (!motivoAnular.trim())
+      return Alert.alert('Error', 'Debes indicar un motivo.');
+    try {
+      setAnulando(true);
+      await client.delete(`/produccion/${loteAnulando.id}`, {
+        data: { motivo: motivoAnular.trim() },
+      });
+      setModalAnular(false);
+      cargar();
+    } catch (err) {
+      Alert.alert('Error', err.response?.data?.message || 'Error al anular.');
+    } finally {
+      setAnulando(false);
     }
   };
 
@@ -389,6 +482,19 @@ const ProduccionScreen = () => {
             ))}
             {Number(item.costo_total) > 0 && (
               <Text style={s.cardCosto}>Costo: {fmt(item.costo_total)}</Text>
+            )}
+            {rol === 'admin' && (
+              <View style={s.actions}>
+                <TouchableOpacity
+                  onPress={() => abrirEditar(item)}
+                  style={s.editBtn}
+                >
+                  <Text>✏️</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => abrirAnular(item)}>
+                  <Text>🗑</Text>
+                </TouchableOpacity>
+              </View>
             )}
           </TouchableOpacity>
         )}
@@ -518,6 +624,121 @@ const ProduccionScreen = () => {
               )}
             </ScrollView>
           )}
+        </View>
+      </Modal>
+
+      <Modal
+        visible={modalEditar}
+        animationType="slide"
+        onRequestClose={() => setModalEditar(false)}
+      >
+        <View style={s.modal}>
+          <View style={s.modalHeader}>
+            <Text style={s.modalTitle}>Editar lote #{loteEditando?.id}</Text>
+            <TouchableOpacity onPress={() => setModalEditar(false)}>
+              <Text style={s.close}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+            <View style={s.productoSeleccionado}>
+              <Text style={s.productoSeleccionadoNombre}>
+                {loteEditando?.lotes_produccion_items?.[0]?.productos?.nombre}
+              </Text>
+            </View>
+
+            <View style={s.field}>
+              <Text style={s.label}>Unidades que salieron del lote *</Text>
+              <TextInput
+                style={s.input}
+                value={cantidadEdit}
+                onChangeText={setCantidadEdit}
+                keyboardType="numeric"
+              />
+            </View>
+
+            {insumosEdit.length > 0 && (
+              <>
+                <Text style={s.sectionLabel}>Insumos utilizados</Text>
+                {insumosEdit.map((item, idx) => (
+                  <View key={item.insumos_id} style={s.insumoRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.insumoNombre}>{item.nombre}</Text>
+                    </View>
+                    <TextInput
+                      style={s.cantInput}
+                      value={item.cantidad}
+                      onChangeText={v => cambiarInsumoEdit(idx, v)}
+                      keyboardType="numeric"
+                    />
+                    <Text style={s.unidad}>{item.unidad}</Text>
+                  </View>
+                ))}
+              </>
+            )}
+
+            <View style={s.field}>
+              <Text style={s.label}>Notas (opcional)</Text>
+              <TextInput
+                style={[s.input, { minHeight: 70 }]}
+                value={notasEdit}
+                onChangeText={setNotasEdit}
+                multiline
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[s.btnGuardar, savingEdit && { opacity: 0.6 }]}
+              onPress={guardarEdicion}
+              disabled={savingEdit}
+            >
+              <Text style={s.btnGuardarText}>
+                {savingEdit ? 'Guardando...' : 'Guardar cambios'}
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={modalAnular}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setModalAnular(false)}
+      >
+        <View style={s.overlay}>
+          <View style={s.confirmBox}>
+            <Text style={s.confirmTitle}>Anular lote #{loteAnulando?.id}</Text>
+            <Text style={s.confirmText}>
+              Se revertirá el stock producido y se devolverán los insumos
+              consumidos.
+            </Text>
+            <Text style={s.label}>Motivo *</Text>
+            <TextInput
+              style={[s.input, { minHeight: 70 }]}
+              value={motivoAnular}
+              onChangeText={setMotivoAnular}
+              placeholder="Ej: Error al registrar la cantidad..."
+              multiline
+            />
+            <View style={s.confirmActions}>
+              <TouchableOpacity
+                style={s.confirmCancelBtn}
+                onPress={() => setModalAnular(false)}
+              >
+                <Text style={s.confirmCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.confirmDeleteBtn, anulando && { opacity: 0.6 }]}
+                onPress={confirmarAnular}
+                disabled={anulando}
+              >
+                <Text style={s.confirmDeleteText}>
+                  {anulando ? 'Anulando...' : 'Anular lote'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
     </View>
@@ -759,6 +980,56 @@ const s = StyleSheet.create({
   },
   filtroChipText: { fontSize: 13, color: '#888' },
   filtroChipTextActivo: { color: '#fff', fontWeight: '600' },
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 16,
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderColor: '#f0f0f0',
+    paddingTop: 8,
+  },
+  editBtn: { marginRight: 4 },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  confirmBox: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+  },
+  confirmTitle: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  confirmText: { fontSize: 13, color: '#888', marginBottom: 12 },
+  confirmActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+  },
+  confirmCancelBtn: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    alignItems: 'center',
+  },
+  confirmCancelText: { color: '#888', fontWeight: '600' },
+  confirmDeleteBtn: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#E63946',
+    alignItems: 'center',
+  },
+  confirmDeleteText: { color: '#fff', fontWeight: '600' },
 });
 
 export default ProduccionScreen;

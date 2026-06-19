@@ -9,7 +9,10 @@ export const getEmpresa = async () => {
   const e = await AsyncStorage.getItem('empresa');
   return e ? JSON.parse(e) : null;
 };
+export const saveRol = rol => AsyncStorage.setItem('rol', rol);
+export const getRol = () => AsyncStorage.getItem('rol');
 export const clearSession = async () => {
   await AsyncStorage.removeItem('token');
   await AsyncStorage.removeItem('empresa');
+  await AsyncStorage.removeItem('rol');
 };

@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import client from '../api/client';
 import { getFechaHoyLocal } from '../utils/date';
+import { getRol } from '../store/authStore';
 import FiltroPeriodo from '../components/FiltroPeriodo';
 import BotonVerMas from '../components/BotonVerMas';
 
@@ -34,6 +35,20 @@ const CajaScreen = () => {
   });
   const [movDetalle, setMovDetalle] = useState(null);
   const [modalDetalle, setModalDetalle] = useState(false);
+  const [rol, setRol] = useState(null);
+  const [modalEditar, setModalEditar] = useState(false);
+  const [movEditando, setMovEditando] = useState(null);
+  const [formEdit, setFormEdit] = useState({
+    tipo: 'gasto',
+    categoria: 'insumo',
+    monto: '',
+    descripcion: '',
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [modalAnular, setModalAnular] = useState(false);
+  const [movAnulando, setMovAnulando] = useState(null);
+  const [motivoAnular, setMotivoAnular] = useState('');
+  const [anulando, setAnulando] = useState(false);
 
   // Vincular el gasto a insumos (opcional) para sumar al inventario
   const [insumos, setInsumos] = useState([]);
@@ -60,6 +75,8 @@ const CajaScreen = () => {
         setResumen(r.data.data);
         setInsumos(i.data.data);
       } catch {}
+      const rolGuardado = await getRol();
+      setRol(rolGuardado);
       setLoading(false);
     },
     [periodo],
@@ -166,6 +183,61 @@ const CajaScreen = () => {
     setModalDetalle(true);
   };
 
+  const abrirEditar = mov => {
+    setMovEditando(mov);
+    setFormEdit({
+      tipo: mov.tipo,
+      categoria: mov.categoria,
+      monto: String(mov.monto),
+      descripcion: mov.descripcion || '',
+    });
+    setModalEditar(true);
+  };
+
+  const guardarEdicion = async () => {
+    if (!formEdit.monto || !formEdit.descripcion)
+      return Alert.alert('Error', 'Monto y descripción son requeridos.');
+    try {
+      setSavingEdit(true);
+      await client.put(`/caja/${movEditando.id}`, {
+        tipo: formEdit.tipo,
+        categoria: formEdit.categoria,
+        monto: Number(formEdit.monto),
+        descripcion: formEdit.descripcion,
+        fecha: movEditando.fecha,
+      });
+      setModalEditar(false);
+      cargar();
+    } catch (err) {
+      Alert.alert('Error', err.response?.data?.message || 'Error al editar.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const abrirAnular = mov => {
+    setMovAnulando(mov);
+    setMotivoAnular('');
+    setModalAnular(true);
+  };
+
+  const confirmarAnular = async () => {
+    if (!motivoAnular.trim())
+      return Alert.alert('Error', 'Debes indicar un motivo.');
+    try {
+      setAnulando(true);
+      await client.delete(`/caja/${movAnulando.id}`, {
+        data: { motivo: motivoAnular.trim() },
+      });
+      setModalAnular(false);
+      cargar();
+    } catch (err) {
+      Alert.alert('Error', err.response?.data?.message || 'Error al anular.');
+    } finally {
+      setAnulando(false);
+    }
+  };
+
   if (loading)
     return (
       <View style={s.center}>
@@ -250,6 +322,19 @@ const CajaScreen = () => {
                 {fmt(item.monto)}
               </Text>
             </View>
+            {rol === 'admin' && (
+              <View style={s.actions}>
+                <TouchableOpacity
+                  onPress={() => abrirEditar(item)}
+                  style={s.editBtn}
+                >
+                  <Text>✏️</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => abrirAnular(item)}>
+                  <Text>🗑</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </TouchableOpacity>
         )}
         ListFooterComponent={
@@ -508,6 +593,141 @@ const CajaScreen = () => {
           )}
         </View>
       </Modal>
+
+      <Modal
+        visible={modalEditar}
+        animationType="slide"
+        onRequestClose={() => setModalEditar(false)}
+      >
+        <View style={s.modal}>
+          <View style={s.modalHeader}>
+            <Text style={s.modalTitle}>Editar movimiento</Text>
+            <TouchableOpacity onPress={() => setModalEditar(false)}>
+              <Text style={s.close}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView>
+            <Text style={s.fieldLabel}>Tipo</Text>
+            <View style={s.toggle}>
+              {['gasto', 'ingreso'].map(t => (
+                <TouchableOpacity
+                  key={t}
+                  style={[s.toggleBtn, formEdit.tipo === t && s.toggleActive]}
+                  onPress={() =>
+                    setFormEdit(p => ({
+                      ...p,
+                      tipo: t,
+                      categoria: t === 'gasto' ? 'insumo' : 'venta',
+                    }))
+                  }
+                >
+                  <Text
+                    style={[
+                      s.toggleText,
+                      formEdit.tipo === t && s.toggleTextActive,
+                    ]}
+                  >
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={s.fieldLabel}>Categoría</Text>
+            <View style={s.chips}>
+              {(formEdit.tipo === 'gasto'
+                ? ['insumo', 'servicio', 'otro']
+                : ['venta', 'otro']
+              ).map(c => (
+                <TouchableOpacity
+                  key={c}
+                  style={[s.chip, formEdit.categoria === c && s.chipActive]}
+                  onPress={() => setFormEdit(p => ({ ...p, categoria: c }))}
+                >
+                  <Text
+                    style={[
+                      s.chipText,
+                      formEdit.categoria === c && s.chipTextActive,
+                    ]}
+                  >
+                    {c}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={s.field}>
+              <Text style={s.fieldLabel}>Monto *</Text>
+              <TextInput
+                style={s.input}
+                value={formEdit.monto}
+                onChangeText={v => setFormEdit(p => ({ ...p, monto: v }))}
+                keyboardType="numeric"
+              />
+            </View>
+            <View style={s.field}>
+              <Text style={s.fieldLabel}>Descripción *</Text>
+              <TextInput
+                style={s.input}
+                value={formEdit.descripcion}
+                onChangeText={v => setFormEdit(p => ({ ...p, descripcion: v }))}
+              />
+            </View>
+          </ScrollView>
+
+          <TouchableOpacity
+            style={[s.btnGuardar, savingEdit && { opacity: 0.6 }]}
+            onPress={guardarEdicion}
+            disabled={savingEdit}
+          >
+            <Text style={s.btnGuardarText}>
+              {savingEdit ? 'Guardando...' : 'Guardar cambios'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={modalAnular}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setModalAnular(false)}
+      >
+        <View style={s.overlay}>
+          <View style={s.confirmBox}>
+            <Text style={s.confirmTitle}>Anular movimiento</Text>
+            <Text style={s.confirmText}>
+              Este movimiento quedará marcado como anulado. Si estaba vinculado
+              a insumos, revisa el inventario manualmente.
+            </Text>
+            <Text style={s.fieldLabel}>Motivo *</Text>
+            <TextInput
+              style={[s.input, { minHeight: 70 }]}
+              value={motivoAnular}
+              onChangeText={setMotivoAnular}
+              placeholder="Ej: Monto incorrecto, registro duplicado..."
+              multiline
+            />
+            <View style={s.confirmActions}>
+              <TouchableOpacity
+                style={s.confirmCancelBtn}
+                onPress={() => setModalAnular(false)}
+              >
+                <Text style={s.confirmCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.confirmDeleteBtn, anulando && { opacity: 0.6 }]}
+                onPress={confirmarAnular}
+                disabled={anulando}
+              >
+                <Text style={s.confirmDeleteText}>
+                  {anulando ? 'Anulando...' : 'Anular movimiento'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -700,6 +920,56 @@ const s = StyleSheet.create({
   },
   detalleLabel: { fontSize: 13, color: '#888' },
   detalleValor: { fontSize: 13, color: '#333', fontWeight: '600' },
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 16,
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderColor: '#f0f0f0',
+    paddingTop: 8,
+  },
+  editBtn: { marginRight: 4 },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  confirmBox: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+  },
+  confirmTitle: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  confirmText: { fontSize: 13, color: '#888', marginBottom: 12 },
+  confirmActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+  },
+  confirmCancelBtn: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    alignItems: 'center',
+  },
+  confirmCancelText: { color: '#888', fontWeight: '600' },
+  confirmDeleteBtn: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#E63946',
+    alignItems: 'center',
+  },
+  confirmDeleteText: { color: '#fff', fontWeight: '600' },
 });
 
 export default CajaScreen;
