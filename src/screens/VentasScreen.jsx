@@ -99,7 +99,7 @@ const VentasScreen = () => {
       if (existe) {
         return prev.map(i =>
           i.productos_id === producto.id
-            ? { ...i, cantidad: i.cantidad + 1 }
+            ? { ...i, cantidad: String((Number(i.cantidad) || 0) + 1) }
             : i,
         );
       }
@@ -118,11 +118,27 @@ const VentasScreen = () => {
   const quitarItem = productos_id =>
     setItems(prev => prev.filter(i => i.productos_id !== productos_id));
 
-  const total = items.reduce((s, i) => s + i.precio_unitario * i.cantidad, 0);
+  const cambiarCantidad = (productos_id, valor) => {
+    setItems(prev =>
+      prev.map(i =>
+        i.productos_id === productos_id ? { ...i, cantidad: valor } : i,
+      ),
+    );
+  };
+
+  const total = items.reduce(
+    (s, i) => s + i.precio_unitario * (Number(i.cantidad) || 0),
+    0,
+  );
 
   const guardar = async () => {
     if (!items.length)
       return Alert.alert('Error', 'Agrega al menos un producto.');
+    if (items.some(i => !Number(i.cantidad) || Number(i.cantidad) <= 0))
+      return Alert.alert(
+        'Error',
+        'Revisa las cantidades, deben ser mayores a 0.',
+      );
     if (credito && !clienteSeleccionado)
       return Alert.alert(
         'Error',
@@ -143,7 +159,7 @@ const VentasScreen = () => {
         abono_inicial: credito ? Number(abonoInicial || 0) : undefined,
         items: items.map(({ productos_id, cantidad, precio_unitario }) => ({
           productos_id,
-          cantidad,
+          cantidad: Number(cantidad),
           precio_unitario,
         })),
       });
@@ -252,7 +268,9 @@ const VentasScreen = () => {
                 </TouchableOpacity>
               ))}
 
-            <Text style={s.sectionLabel}>Cliente (opcional)</Text>
+            <Text style={s.sectionLabel}>
+              Cliente{credito ? '' : ' (opcional)'}
+            </Text>
             <TouchableOpacity
               style={s.clienteSelector}
               onPress={() => setModalClientes(true)}
@@ -313,11 +331,15 @@ const VentasScreen = () => {
                 <Text style={s.sectionLabel}>Resumen</Text>
                 {items.map(i => (
                   <View key={i.productos_id} style={s.itemRow}>
-                    <Text style={s.itemNombre}>
-                      {i.nombre} x{i.cantidad}
-                    </Text>
+                    <Text style={s.itemNombre}>{i.nombre}</Text>
+                    <TextInput
+                      style={s.itemCantInput}
+                      value={String(i.cantidad)}
+                      onChangeText={v => cambiarCantidad(i.productos_id, v)}
+                      keyboardType="numeric"
+                    />
                     <Text style={s.itemSubtotal}>
-                      {fmt(i.precio_unitario * i.cantidad)}
+                      {fmt(i.precio_unitario * (Number(i.cantidad) || 0))}
                     </Text>
                     <TouchableOpacity
                       onPress={() => quitarItem(i.productos_id)}
@@ -554,6 +576,17 @@ const s = StyleSheet.create({
     borderColor: '#f0f0f0',
   },
   itemNombre: { flex: 1, fontSize: 14, color: '#333' },
+  itemCantInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 6,
+    padding: 6,
+    width: 50,
+    textAlign: 'center',
+    fontSize: 14,
+    marginRight: 10,
+    backgroundColor: '#fff',
+  },
   itemSubtotal: {
     fontSize: 14,
     fontWeight: '600',
