@@ -7,6 +7,7 @@ import {
   FlatList,
   TouchableOpacity,
   Modal,
+  TextInput,
   Alert,
   ActivityIndicator,
   ScrollView,
@@ -40,29 +41,36 @@ const VentasScreen = () => {
   // Form state
   const [items, setItems] = useState([]);
   const [canal, setCanal] = useState('punto_venta');
+  const [credito, setCredito] = useState(false);
+  const [abonoInicial, setAbonoInicial] = useState('');
 
-  const cargar = useCallback(async (periodoActual = periodo) => {
-    try {
-      const [v, p, c] = await Promise.all([
-        client.get(`/ventas?periodo=${periodoActual}&page=1&limit=10`),
-        client.get('/productos'),
-        client.get('/clientes'),
-      ]);
-      setVentas(v.data.data);
-      setPage(1);
-      setTotalPages(v.data.meta?.pages ?? 1);
-      setProductos(p.data.data);
-      setClientes(c.data.data);
-    } catch {}
-    setLoading(false);
-  }, [periodo]);
+  const cargar = useCallback(
+    async (periodoActual = periodo) => {
+      try {
+        const [v, p, c] = await Promise.all([
+          client.get(`/ventas?periodo=${periodoActual}&page=1&limit=10`),
+          client.get('/productos'),
+          client.get('/clientes'),
+        ]);
+        setVentas(v.data.data);
+        setPage(1);
+        setTotalPages(v.data.meta?.pages ?? 1);
+        setProductos(p.data.data);
+        setClientes(c.data.data);
+      } catch {}
+      setLoading(false);
+    },
+    [periodo],
+  );
 
   const verMas = async () => {
     if (page >= totalPages) return;
     try {
       setLoadingMas(true);
       const siguiente = page + 1;
-      const res = await client.get(`/ventas?periodo=${periodo}&page=${siguiente}&limit=10`);
+      const res = await client.get(
+        `/ventas?periodo=${periodo}&page=${siguiente}&limit=10`,
+      );
       setVentas(prev => [...prev, ...res.data.data]);
       setPage(siguiente);
       setTotalPages(res.data.meta?.pages ?? 1);
@@ -115,12 +123,24 @@ const VentasScreen = () => {
   const guardar = async () => {
     if (!items.length)
       return Alert.alert('Error', 'Agrega al menos un producto.');
+    if (credito && !clienteSeleccionado)
+      return Alert.alert(
+        'Error',
+        'Para una venta a crédito debes asignar un cliente.',
+      );
+    if (credito && abonoInicial && Number(abonoInicial) > total)
+      return Alert.alert(
+        'Error',
+        'El abono no puede ser mayor al total de la venta.',
+      );
     try {
       setSaving(true);
       await client.post('/ventas', {
         fecha: getFechaHoyLocal(),
         canal,
         clientes_id: clienteSeleccionado?.id ?? null,
+        credito,
+        abono_inicial: credito ? Number(abonoInicial || 0) : undefined,
         items: items.map(({ productos_id, cantidad, precio_unitario }) => ({
           productos_id,
           cantidad,
@@ -130,6 +150,8 @@ const VentasScreen = () => {
       setModal(false);
       setItems([]);
       setClienteSeleccionado(null);
+      setCredito(false);
+      setAbonoInicial('');
       cargar();
     } catch (err) {
       Alert.alert('Error', err.response?.data?.message || 'Error al guardar.');
@@ -250,6 +272,41 @@ const VentasScreen = () => {
                 </TouchableOpacity>
               )}
             </TouchableOpacity>
+            <Text style={s.sectionLabel}>Forma de pago</Text>
+            <View style={s.toggle}>
+              {[
+                { val: false, label: 'Pago completo' },
+                { val: true, label: 'A crédito' },
+              ].map(opt => (
+                <TouchableOpacity
+                  key={String(opt.val)}
+                  style={[s.toggleBtn, credito === opt.val && s.toggleActive]}
+                  onPress={() => setCredito(opt.val)}
+                >
+                  <Text
+                    style={[
+                      s.toggleText,
+                      credito === opt.val && s.toggleTextActive,
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {credito && (
+              <View style={s.field}>
+                <Text style={s.fieldLabel}>Abono inicial (opcional)</Text>
+                <TextInput
+                  style={s.input}
+                  value={abonoInicial}
+                  onChangeText={setAbonoInicial}
+                  keyboardType="numeric"
+                  placeholder="0"
+                />
+              </View>
+            )}
 
             {items.length > 0 && (
               <>
@@ -317,6 +374,16 @@ const VentasScreen = () => {
                   <Text style={s.detalleLabel}>Cliente</Text>
                   <Text style={s.detalleValor}>
                     {ventaDetalle.clientes.nombre}
+                  </Text>
+                </View>
+              )}
+              {ventaDetalle.estado_pago !== 'pagada' && (
+                <View style={s.detalleSeccion}>
+                  <Text style={s.detalleLabel}>Estado de pago</Text>
+                  <Text style={[s.detalleValor, { color: '#E63946' }]}>
+                    {ventaDetalle.estado_pago === 'pendiente'
+                      ? 'Pendiente'
+                      : 'Parcial'}
                   </Text>
                 </View>
               )}
@@ -525,6 +592,37 @@ const s = StyleSheet.create({
   },
   clienteNombre: { fontSize: 14, color: '#333', fontWeight: '600' },
   clientePlaceholder: { fontSize: 14, color: '#aaa' },
+  toggle: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    gap: 8,
+    marginBottom: 8,
+  },
+  toggleBtn: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    alignItems: 'center',
+  },
+  toggleActive: { backgroundColor: '#E63946', borderColor: '#E63946' },
+  toggleText: { color: '#888', fontWeight: '600' },
+  toggleTextActive: { color: '#fff' },
+  field: { paddingHorizontal: 16, marginBottom: 8 },
+  fieldLabel: {
+    fontSize: 13,
+    color: '#888',
+    marginBottom: 6,
+    fontWeight: '600',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+  },
   arrow: { fontSize: 22, color: '#ccc' },
   cardCliente: { fontSize: 12, color: '#457B9D', marginBottom: 4 },
   detalleSeccion: {

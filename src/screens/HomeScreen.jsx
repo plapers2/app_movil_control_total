@@ -23,6 +23,7 @@ const HomeScreen = () => {
   const navigation = useNavigation();
   const [empresa, setEmpresa] = useState(null);
   const [resumen, setResumen] = useState(null);
+  const [deudas, setDeudas] = useState(null);
   const [loading, setLoading] = useState(true);
   const [periodo, setPeriodo] = useState('dia');
 
@@ -33,13 +34,20 @@ const HomeScreen = () => {
     } catch {}
   };
 
+  const cargarDeudas = async () => {
+    try {
+      const res = await client.get('/deudas/resumen');
+      setDeudas(res.data.data);
+    } catch {}
+  };
+
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       setLoading(true);
       const load = async () => {
         const e = await getEmpresa();
         setEmpresa(e);
-        await cargarResumen(periodo);
+        await Promise.all([cargarResumen(periodo), cargarDeudas()]);
         setLoading(false);
       };
       load();
@@ -88,15 +96,36 @@ const HomeScreen = () => {
       {loading ? (
         <ActivityIndicator color="#E63946" style={{ marginTop: 20 }} />
       ) : (
-        <View style={s.cards}>
-          <Card
-            label="Ingresos"
-            value={fmt(resumen?.ingresos)}
-            color="#2DC653"
-          />
-          <Card label="Gastos" value={fmt(resumen?.gastos)} color="#E63946" />
-          <Card label="Balance" value={fmt(resumen?.balance)} color="#457B9D" />
-        </View>
+        <>
+          <View style={s.cards}>
+            <Card
+              label="Ingresos"
+              value={fmt(resumen?.ingresos)}
+              color="#2DC653"
+            />
+            <Card label="Gastos" value={fmt(resumen?.gastos)} color="#E63946" />
+            <Card
+              label="Balance"
+              value={fmt(resumen?.balance)}
+              color="#457B9D"
+            />
+          </View>
+
+          <TouchableOpacity
+            style={s.deudaCard}
+            onPress={() => navigation.navigate('Deudas')}
+          >
+            <View>
+              <Text style={s.deudaLabel}>Total por cobrar</Text>
+              <Text style={s.deudaSub}>
+                {deudas?.cantidadVentas ?? 0} venta
+                {deudas?.cantidadVentas === 1 ? '' : 's'} pendiente
+                {deudas?.cantidadVentas === 1 ? '' : 's'}
+              </Text>
+            </View>
+            <Text style={s.deudaValor}>{fmt(deudas?.totalPorCobrar)}</Text>
+          </TouchableOpacity>
+        </>
       )}
 
       <Text style={s.section}>Accesos rápidos</Text>
@@ -108,6 +137,7 @@ const HomeScreen = () => {
           { label: '🏭 Producción', screen: 'Produccion' },
           { label: '👥 Clientes', screen: 'Clientes' },
           { label: '💰 Caja', screen: 'Caja' },
+          { label: '🧾 Deudas', screen: 'Deudas' },
         ].map(item => (
           <TouchableOpacity
             key={item.screen}
@@ -145,6 +175,22 @@ const s = StyleSheet.create({
     marginBottom: 10,
   },
   cards: { flexDirection: 'row', paddingHorizontal: 12, gap: 8 },
+  deudaCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    marginHorizontal: 12,
+    marginTop: 10,
+    padding: 16,
+    borderRadius: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: '#E63946',
+    elevation: 1,
+  },
+  deudaLabel: { fontSize: 14, fontWeight: '700', color: '#333' },
+  deudaSub: { fontSize: 12, color: '#888', marginTop: 2 },
+  deudaValor: { fontSize: 18, fontWeight: 'bold', color: '#E63946' },
   card: {
     flex: 1,
     backgroundColor: '#fff',
