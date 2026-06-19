@@ -13,7 +13,9 @@ import {
   ScrollView,
 } from 'react-native';
 import client from '../api/client';
-import { toFechaLocal } from '../utils/date';
+import { getFechaHoyLocal, toFechaLocal } from '../utils/date';
+import FiltroPeriodo from '../components/FiltroPeriodo';
+import BotonVerMas from '../components/BotonVerMas';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 const fmtFecha = d => new Date(d).toLocaleDateString('es-CO');
@@ -33,24 +35,59 @@ const CajaScreen = () => {
   const [movDetalle, setMovDetalle] = useState(null);
   const [modalDetalle, setModalDetalle] = useState(false);
 
+  // Filtro de periodo y paginación (lista de movimientos)
+  const [periodo, setPeriodo] = useState('dia');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loadingMas, setLoadingMas] = useState(false);
+
   const hoy = new Date();
-  const desde = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(
+  const desdeMes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(
     2,
     '0',
   )}-01`;
-  const hasta = toFechaLocal(hoy);
+  const hastaMes = toFechaLocal(hoy);
 
-  const cargar = useCallback(async () => {
+  const cargar = useCallback(
+    async (periodoActual = periodo) => {
+      try {
+        const [m, r] = await Promise.all([
+          client.get(`/caja?periodo=${periodoActual}&page=1&limit=10`),
+          client.get(`/caja/resumen?desde=${desdeMes}&hasta=${hastaMes}`),
+        ]);
+        setMovimientos(m.data.data);
+        setPage(1);
+        setTotalPages(m.data.meta?.pages ?? 1);
+        setResumen(r.data.data);
+      } catch {}
+      setLoading(false);
+    },
+    [periodo],
+  );
+
+  const verMas = async () => {
+    if (page >= totalPages) return;
     try {
-      const [m, r] = await Promise.all([
-        client.get('/caja'),
-        client.get(`/caja/resumen?desde=${desde}&hasta=${hasta}`),
-      ]);
-      setMovimientos(m.data.data);
-      setResumen(r.data.data);
-    } catch {}
-    setLoading(false);
-  }, []);
+      setLoadingMas(true);
+      const siguiente = page + 1;
+      const res = await client.get(
+        `/caja?periodo=${periodo}&page=${siguiente}&limit=10`,
+      );
+      setMovimientos(prev => [...prev, ...res.data.data]);
+      setPage(siguiente);
+      setTotalPages(res.data.meta?.pages ?? 1);
+    } catch {
+      Alert.alert('Error', 'No se pudieron cargar más movimientos.');
+    } finally {
+      setLoadingMas(false);
+    }
+  };
+
+  const cambiarPeriodo = nuevoPeriodo => {
+    setPeriodo(nuevoPeriodo);
+    setLoading(true);
+    cargar(nuevoPeriodo);
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -68,7 +105,7 @@ const CajaScreen = () => {
         categoria: form.categoria,
         monto: Number(form.monto),
         descripcion: form.descripcion,
-        fecha: hasta,
+        fecha: getFechaHoyLocal(),
       });
       setModal(false);
       setForm({
@@ -135,7 +172,9 @@ const CajaScreen = () => {
         </View>
       )}
 
-      <Text style={s.sectionLabel}>Movimientos del mes</Text>
+      <FiltroPeriodo periodo={periodo} onChange={cambiarPeriodo} />
+
+      <Text style={s.sectionLabel}>Movimientos</Text>
 
       <FlatList
         data={movimientos}
@@ -163,6 +202,13 @@ const CajaScreen = () => {
             </View>
           </TouchableOpacity>
         )}
+        ListFooterComponent={
+          <BotonVerMas
+            onPress={verMas}
+            loading={loadingMas}
+            visible={page < totalPages}
+          />
+        }
       />
 
       <Modal

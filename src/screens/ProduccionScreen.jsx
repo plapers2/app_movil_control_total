@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import client from '../api/client';
 import { getFechaHoyLocal } from '../utils/date';
+import FiltroPeriodo from '../components/FiltroPeriodo';
+import BotonVerMas from '../components/BotonVerMas';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 const fmtFecha = d => new Date(d).toLocaleDateString('es-CO');
@@ -198,17 +200,52 @@ const ProduccionScreen = () => {
   const [modalDetalle, setModalDetalle] = useState(false);
   const [filtroProducto, setFiltroProducto] = useState(null);
 
-  const cargar = useCallback(async () => {
+  // Filtro de periodo y paginación
+  const [periodo, setPeriodo] = useState('dia');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loadingMas, setLoadingMas] = useState(false);
+
+  const cargar = useCallback(
+    async (periodoActual = periodo) => {
+      try {
+        const [l, p] = await Promise.all([
+          client.get(`/produccion?periodo=${periodoActual}&page=1&limit=10`),
+          client.get('/productos'),
+        ]);
+        setLotes(l.data.data);
+        setPage(1);
+        setTotalPages(l.data.meta?.pages ?? 1);
+        setProductos(p.data.data);
+      } catch {}
+      setLoading(false);
+    },
+    [periodo],
+  );
+
+  const verMas = async () => {
+    if (page >= totalPages) return;
     try {
-      const [l, p] = await Promise.all([
-        client.get('/produccion'),
-        client.get('/productos'),
-      ]);
-      setLotes(l.data.data);
-      setProductos(p.data.data);
-    } catch {}
-    setLoading(false);
-  }, []);
+      setLoadingMas(true);
+      const siguiente = page + 1;
+      const res = await client.get(
+        `/produccion?periodo=${periodo}&page=${siguiente}&limit=10`,
+      );
+      setLotes(prev => [...prev, ...res.data.data]);
+      setPage(siguiente);
+      setTotalPages(res.data.meta?.pages ?? 1);
+    } catch {
+      Alert.alert('Error', 'No se pudieron cargar más lotes.');
+    } finally {
+      setLoadingMas(false);
+    }
+  };
+
+  const cambiarPeriodo = nuevoPeriodo => {
+    setPeriodo(nuevoPeriodo);
+    setLoading(true);
+    cargar(nuevoPeriodo);
+  };
 
   const productosEnLotes = productos.filter(p =>
     lotes.some(l =>
@@ -289,7 +326,7 @@ const ProduccionScreen = () => {
           <Text style={s.btnNewText}>+ Lote</Text>
         </TouchableOpacity>
       </View>
-
+      <FiltroPeriodo periodo={periodo} onChange={cambiarPeriodo} />
       {productosEnLotes.length > 0 && (
         <ScrollView
           horizontal
@@ -355,6 +392,13 @@ const ProduccionScreen = () => {
             )}
           </TouchableOpacity>
         )}
+        ListFooterComponent={
+          <BotonVerMas
+            onPress={verMas}
+            loading={loadingMas}
+            visible={!filtroProducto && page < totalPages}
+          />
+        }
       />
 
       <Modal

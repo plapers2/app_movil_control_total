@@ -12,7 +12,9 @@ import {
   ScrollView,
 } from 'react-native';
 import client from '../api/client';
-import { getFechaHoyLocal } from '../utils/date'; 
+import { getFechaHoyLocal } from '../utils/date';
+import FiltroPeriodo from '../components/FiltroPeriodo';
+import BotonVerMas from '../components/BotonVerMas';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 const fmtFecha = d => new Date(d).toLocaleDateString('es-CO');
@@ -29,23 +31,53 @@ const VentasScreen = () => {
   const [ventaDetalle, setVentaDetalle] = useState(null);
   const [modalDetalle, setModalDetalle] = useState(false);
 
+  // Filtro y paginación
+  const [periodo, setPeriodo] = useState('dia');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loadingMas, setLoadingMas] = useState(false);
+
   // Form state
   const [items, setItems] = useState([]);
   const [canal, setCanal] = useState('punto_venta');
 
-  const cargar = useCallback(async () => {
+  const cargar = useCallback(async (periodoActual = periodo) => {
     try {
       const [v, p, c] = await Promise.all([
-        client.get('/ventas'),
+        client.get(`/ventas?periodo=${periodoActual}&page=1&limit=10`),
         client.get('/productos'),
         client.get('/clientes'),
       ]);
       setVentas(v.data.data);
+      setPage(1);
+      setTotalPages(v.data.meta?.pages ?? 1);
       setProductos(p.data.data);
       setClientes(c.data.data);
     } catch {}
     setLoading(false);
-  }, []);
+  }, [periodo]);
+
+  const verMas = async () => {
+    if (page >= totalPages) return;
+    try {
+      setLoadingMas(true);
+      const siguiente = page + 1;
+      const res = await client.get(`/ventas?periodo=${periodo}&page=${siguiente}&limit=10`);
+      setVentas(prev => [...prev, ...res.data.data]);
+      setPage(siguiente);
+      setTotalPages(res.data.meta?.pages ?? 1);
+    } catch {
+      Alert.alert('Error', 'No se pudieron cargar más ventas.');
+    } finally {
+      setLoadingMas(false);
+    }
+  };
+
+  const cambiarPeriodo = nuevoPeriodo => {
+    setPeriodo(nuevoPeriodo);
+    setLoading(true);
+    cargar(nuevoPeriodo);
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -132,6 +164,8 @@ const VentasScreen = () => {
         </TouchableOpacity>
       </View>
 
+      <FiltroPeriodo periodo={periodo} onChange={cambiarPeriodo} />
+
       <FlatList
         data={ventas}
         keyExtractor={item => String(item.id)}
@@ -156,6 +190,13 @@ const VentasScreen = () => {
             ))}
           </TouchableOpacity>
         )}
+        ListFooterComponent={
+          <BotonVerMas
+            onPress={verMas}
+            loading={loadingMas}
+            visible={page < totalPages}
+          />
+        }
       />
 
       <Modal
