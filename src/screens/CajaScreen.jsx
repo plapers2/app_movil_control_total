@@ -13,7 +13,7 @@ import {
   ScrollView,
 } from 'react-native';
 import client from '../api/client';
-import { getFechaHoyLocal, toFechaLocal } from '../utils/date';
+import { getFechaHoyLocal } from '../utils/date';
 import FiltroPeriodo from '../components/FiltroPeriodo';
 import BotonVerMas from '../components/BotonVerMas';
 
@@ -41,19 +41,12 @@ const CajaScreen = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [loadingMas, setLoadingMas] = useState(false);
 
-  const hoy = new Date();
-  const desdeMes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(
-    2,
-    '0',
-  )}-01`;
-  const hastaMes = toFechaLocal(hoy);
-
   const cargar = useCallback(
     async (periodoActual = periodo) => {
       try {
         const [m, r] = await Promise.all([
           client.get(`/caja?periodo=${periodoActual}&page=1&limit=10`),
-          client.get(`/caja/resumen?desde=${desdeMes}&hasta=${hastaMes}`),
+          client.get(`/caja/resumen?periodo=${periodoActual}`),
         ]);
         setMovimientos(m.data.data);
         setPage(1);
@@ -144,32 +137,43 @@ const CajaScreen = () => {
       </View>
 
       {resumen && (
-        <View style={s.resumen}>
-          <View style={[s.resCard, { borderLeftColor: '#2DC653' }]}>
-            <Text style={s.resVal}>{fmt(resumen.ingresos)}</Text>
-            <Text style={s.resLabel}>Ingresos</Text>
-          </View>
-          <View style={[s.resCard, { borderLeftColor: '#E63946' }]}>
-            <Text style={s.resVal}>{fmt(resumen.gastos)}</Text>
-            <Text style={s.resLabel}>Gastos</Text>
-          </View>
-          <View
-            style={[
-              s.resCard,
-              { borderLeftColor: resumen.balance >= 0 ? '#457B9D' : '#E63946' },
-            ]}
-          >
-            <Text
+        <>
+          <Text style={s.resumenPeriodoLabel}>
+            {periodo === 'dia'
+              ? 'Hoy'
+              : periodo === 'semana'
+              ? 'Esta semana'
+              : 'Este mes'}
+          </Text>
+          <View style={s.resumen}>
+            <View style={[s.resCard, { borderLeftColor: '#2DC653' }]}>
+              <Text style={s.resVal}>{fmt(resumen.ingresos)}</Text>
+              <Text style={s.resLabel}>Ingresos</Text>
+            </View>
+            <View style={[s.resCard, { borderLeftColor: '#E63946' }]}>
+              <Text style={s.resVal}>{fmt(resumen.gastos)}</Text>
+              <Text style={s.resLabel}>Gastos</Text>
+            </View>
+            <View
               style={[
-                s.resVal,
-                { color: resumen.balance >= 0 ? '#457B9D' : '#E63946' },
+                s.resCard,
+                {
+                  borderLeftColor: resumen.balance >= 0 ? '#457B9D' : '#E63946',
+                },
               ]}
             >
-              {fmt(resumen.balance)}
-            </Text>
-            <Text style={s.resLabel}>Balance</Text>
+              <Text
+                style={[
+                  s.resVal,
+                  { color: resumen.balance >= 0 ? '#457B9D' : '#E63946' },
+                ]}
+              >
+                {fmt(resumen.balance)}
+              </Text>
+              <Text style={s.resLabel}>Balance</Text>
+            </View>
           </View>
-        </View>
+        </>
       )}
 
       <FiltroPeriodo periodo={periodo} onChange={cambiarPeriodo} />
@@ -388,6 +392,14 @@ const s = StyleSheet.create({
     padding: 20,
     paddingTop: 50,
     backgroundColor: '#fff',
+  },
+  resumenPeriodoLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#888',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    textTransform: 'uppercase',
   },
   title: { fontSize: 22, fontWeight: 'bold', color: '#333' },
   btnNew: {

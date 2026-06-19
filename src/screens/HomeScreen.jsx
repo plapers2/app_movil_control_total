@@ -10,6 +10,7 @@ import {
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import client from '../api/client';
 import { getEmpresa, clearSession } from '../store/authStore';
+import FiltroPeriodo from '../components/FiltroPeriodo';
 
 const Card = ({ label, value, color }) => (
   <View style={[s.card, { borderLeftColor: color }]}>
@@ -23,6 +24,14 @@ const HomeScreen = () => {
   const [empresa, setEmpresa] = useState(null);
   const [resumen, setResumen] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [periodo, setPeriodo] = useState('dia');
+
+  const cargarResumen = async periodoActual => {
+    try {
+      const res = await client.get(`/caja/resumen?periodo=${periodoActual}`);
+      setResumen(res.data.data);
+    } catch {}
+  };
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
@@ -30,25 +39,19 @@ const HomeScreen = () => {
       const load = async () => {
         const e = await getEmpresa();
         setEmpresa(e);
-        try {
-          const hoy = new Date();
-          const desde = `${hoy.getFullYear()}-${String(
-            hoy.getMonth() + 1,
-          ).padStart(2, '0')}-01`;
-          const hasta = `${hoy.getFullYear()}-${String(
-            hoy.getMonth() + 1,
-          ).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
-          const res = await client.get(
-            `/caja/resumen?desde=${desde}&hasta=${hasta}`,
-          );
-          setResumen(res.data.data);
-        } catch {}
+        await cargarResumen(periodo);
         setLoading(false);
       };
       load();
     });
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, periodo]);
+
+  const cambiarPeriodo = nuevoPeriodo => {
+    setPeriodo(nuevoPeriodo);
+    setLoading(true);
+    cargarResumen(nuevoPeriodo).finally(() => setLoading(false));
+  };
 
   const handleLogout = async () => {
     await clearSession();
@@ -71,7 +74,16 @@ const HomeScreen = () => {
         </TouchableOpacity>
       </View>
 
-      <Text style={s.section}>Resumen del mes</Text>
+      <Text style={s.section}>
+        Resumen de{' '}
+        {periodo === 'dia'
+          ? 'hoy'
+          : periodo === 'semana'
+          ? 'la semana'
+          : 'el mes'}
+      </Text>
+
+      <FiltroPeriodo periodo={periodo} onChange={cambiarPeriodo} />
 
       {loading ? (
         <ActivityIndicator color="#E63946" style={{ marginTop: 20 }} />
