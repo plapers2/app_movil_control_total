@@ -1,23 +1,28 @@
 /**
- * Utilidades de fecha.
+ * Utilidades de fecha — ancladas a Colombia (UTC-5), sin depender de la
+ * zona horaria que tenga configurada el dispositivo.
  *
- * IMPORTANTE: nunca usar `new Date().toISOString().split('T')[0]` para obtener
- * la fecha de "hoy". `toISOString()` siempre devuelve la fecha en UTC, no en
- * hora local. Colombia está en UTC-5, así que entre ~7pm y medianoche (hora
- * Colombia) ese método ya devuelve el día siguiente.
+ * IMPORTANTE: no usamos `new Date().getFullYear()/getMonth()/getDate()`
+ * porque esos dependen de la zona horaria del SISTEMA OPERATIVO del
+ * dispositivo — y en emuladores (o teléfonos mal configurados) eso puede
+ * no ser Colombia, dando fechas equivocadas cerca de medianoche.
  *
- * Estas funciones siempre usan los componentes de fecha LOCALES del
- * dispositivo (getFullYear/getMonth/getDate), que respetan la zona horaria
- * real del usuario.
+ * En su lugar, calculamos la hora actual en Colombia restando el offset
+ * directamente al instante UTC, igual que hace el backend.
  */
 
-// Formatea cualquier Date a 'YYYY-MM-DD' usando hora LOCAL (no UTC).
+const OFFSET_COLOMBIA_HORAS = 5; // Colombia es UTC-5 todo el año (sin DST)
+
+// Formatea cualquier Date a 'YYYY-MM-DD' como si fuera hora Colombia,
+// sin importar la zona horaria configurada en el dispositivo.
 export const toFechaLocal = date => {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
+  const colombiaMs = date.getTime() - OFFSET_COLOMBIA_HORAS * 60 * 60 * 1000;
+  const colombiaDate = new Date(colombiaMs);
+  const y = colombiaDate.getUTCFullYear();
+  const m = String(colombiaDate.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(colombiaDate.getUTCDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 };
 
-// Fecha de "hoy" en formato 'YYYY-MM-DD', en hora local del dispositivo.
+// Fecha de "hoy" en formato 'YYYY-MM-DD', anclada a hora Colombia.
 export const getFechaHoyLocal = () => toFechaLocal(new Date());

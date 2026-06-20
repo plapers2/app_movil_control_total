@@ -20,7 +20,10 @@ import FiltroPeriodo from '../components/FiltroPeriodo';
 import BotonVerMas from '../components/BotonVerMas';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
-const fmtFecha = d => new Date(d).toLocaleDateString('es-CO');
+const fmtFecha = d => {
+  const [y, m, dia] = String(d).slice(0, 10).split('-');
+  return `${dia}/${m}/${y}`;
+};
 
 // ─── Paso 1: Seleccionar producto ────────────────────────────────────
 const PasoProducto = ({ productos, onSeleccionar }) => (
