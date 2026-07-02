@@ -17,6 +17,7 @@ import { getFechaHoyLocal } from '../utils/date';
 import { getRol } from '../store/authStore';
 import FiltroPeriodo from '../components/FiltroPeriodo';
 import BotonVerMas from '../components/BotonVerMas';
+import SelectorProductoModal from '../components/SelectorProductoModal';
 import { coincide } from '../utils/texto';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
@@ -39,7 +40,7 @@ const VentasScreen = () => {
   const [ventaEditando, setVentaEditando] = useState(null);
   const [itemsEdit, setItemsEdit] = useState([]);
   const [canalEdit, setCanalEdit] = useState('punto_venta');
-  const [busquedaProductoEdit, setBusquedaProductoEdit] = useState('');
+  const [modalProductosEdit, setModalProductosEdit] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [modalAnular, setModalAnular] = useState(false);
   const [ventaAnulando, setVentaAnulando] = useState(null);
@@ -58,7 +59,7 @@ const VentasScreen = () => {
   const [canal, setCanal] = useState('punto_venta');
   const [credito, setCredito] = useState(false);
   const [abonoInicial, setAbonoInicial] = useState('');
-  const [busquedaProducto, setBusquedaProducto] = useState('');
+  const [modalProductos, setModalProductos] = useState(false);
 
   const paramsFecha = criterio => {
     const params = new URLSearchParams({ periodo: criterio.periodo });
@@ -147,7 +148,6 @@ const VentasScreen = () => {
         },
       ];
     });
-    setBusquedaProducto('');
   };
 
   const quitarItem = productos_id =>
@@ -203,7 +203,6 @@ const VentasScreen = () => {
       setClienteSeleccionado(null);
       setCredito(false);
       setAbonoInicial('');
-      setBusquedaProducto('');
       cargar();
     } catch (err) {
       Alert.alert('Error', err.response?.data?.message || 'Error al guardar.');
@@ -236,7 +235,6 @@ const VentasScreen = () => {
           precio_unitario: Number(vi.precio_unitario),
         })),
       );
-      setBusquedaProductoEdit('');
       setModalEditar(true);
     } catch {
       Alert.alert('Error', 'No se pudo cargar la venta.');
@@ -263,7 +261,6 @@ const VentasScreen = () => {
         },
       ];
     });
-    setBusquedaProductoEdit('');
   };
 
   const quitarItemEdit = productos_id =>
@@ -411,44 +408,16 @@ const VentasScreen = () => {
           </View>
 
           <ScrollView>
-            <Text style={s.sectionLabel}>Productos disponibles</Text>
-            <View style={s.buscadorBox}>
-              <TextInput
-                style={s.buscadorInput}
-                value={busquedaProducto}
-                onChangeText={setBusquedaProducto}
-                placeholder="Buscar producto..."
-                placeholderTextColor="#aaa"
-              />
-              {busquedaProducto.length > 0 && (
-                <TouchableOpacity onPress={() => setBusquedaProducto('')}>
-                  <Text style={s.removeBtn}>✕</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {busquedaProducto.trim().length > 0 && (
-              <View style={s.dropdown}>
-                {productos
-                  .filter(p => p.activo && coincide(p.nombre, busquedaProducto))
-                  .map(p => (
-                    <TouchableOpacity
-                      key={p.id}
-                      style={s.prodRow}
-                      onPress={() => agregarItem(p)}
-                    >
-                      <View>
-                        <Text style={s.prodNombre}>{p.nombre}</Text>
-                        <Text style={s.prodPrecio}>{fmt(p.precio_venta)}</Text>
-                      </View>
-                      <Text style={s.addBtn}>＋</Text>
-                    </TouchableOpacity>
-                  ))}
-                {!productos.some(
-                  p => p.activo && coincide(p.nombre, busquedaProducto),
-                ) && <Text style={s.empty}>Sin resultados</Text>}
-              </View>
-            )}
+            <Text style={s.sectionLabel}>Productos</Text>
+            <TouchableOpacity
+              style={s.clienteSelector}
+              onPress={() => setModalProductos(true)}
+            >
+              <Text style={s.clientePlaceholder}>
+                Toca para buscar y agregar productos
+              </Text>
+              <Text style={s.arrow}>›</Text>
+            </TouchableOpacity>
 
             {items.length > 0 && (
               <>
@@ -554,6 +523,15 @@ const VentasScreen = () => {
           </TouchableOpacity>
         </View>
       </Modal>
+
+      <SelectorProductoModal
+        visible={modalProductos}
+        onClose={() => setModalProductos(false)}
+        productos={productos}
+        items={items}
+        onAgregar={agregarItem}
+        onQuitar={quitarItem}
+      />
       <Modal
         visible={modalDetalle}
         animationType="slide"
@@ -766,42 +744,15 @@ const VentasScreen = () => {
             </View>
 
             <Text style={s.sectionLabel}>Agregar producto</Text>
-            <View style={s.buscadorBox}>
-              <TextInput
-                style={s.buscadorInput}
-                value={busquedaProductoEdit}
-                onChangeText={setBusquedaProductoEdit}
-                placeholder="Buscar producto..."
-                placeholderTextColor="#aaa"
-              />
-              {busquedaProductoEdit.length > 0 && (
-                <TouchableOpacity onPress={() => setBusquedaProductoEdit('')}>
-                  <Text style={s.removeBtn}>✕</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {busquedaProductoEdit.trim().length > 0 && (
-              <View style={s.dropdown}>
-                {productos
-                  .filter(
-                    p => p.activo && coincide(p.nombre, busquedaProductoEdit),
-                  )
-                  .map(p => (
-                    <TouchableOpacity
-                      key={p.id}
-                      style={s.prodRow}
-                      onPress={() => agregarItemEdit(p)}
-                    >
-                      <View>
-                        <Text style={s.prodNombre}>{p.nombre}</Text>
-                        <Text style={s.prodPrecio}>{fmt(p.precio_venta)}</Text>
-                      </View>
-                      <Text style={s.addBtn}>＋</Text>
-                    </TouchableOpacity>
-                  ))}
-              </View>
-            )}
+            <TouchableOpacity
+              style={s.clienteSelector}
+              onPress={() => setModalProductosEdit(true)}
+            >
+              <Text style={s.clientePlaceholder}>
+                Toca para buscar y agregar productos
+              </Text>
+              <Text style={s.arrow}>›</Text>
+            </TouchableOpacity>
 
             <Text style={s.sectionLabel}>Productos de la venta</Text>
             {itemsEdit.map(i => (
@@ -841,6 +792,15 @@ const VentasScreen = () => {
           </TouchableOpacity>
         </View>
       </Modal>
+
+      <SelectorProductoModal
+        visible={modalProductosEdit}
+        onClose={() => setModalProductosEdit(false)}
+        productos={productos}
+        items={itemsEdit}
+        onAgregar={agregarItemEdit}
+        onQuitar={quitarItemEdit}
+      />
 
       <Modal
         visible={modalAnular}
@@ -959,16 +919,6 @@ const s = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
     color: '#333',
-  },
-  dropdown: {
-    marginHorizontal: 16,
-    marginTop: -8,
-    marginBottom: 8,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#eee',
-    borderRadius: 8,
-    overflow: 'hidden',
   },
   prodRow: {
     flexDirection: 'row',
