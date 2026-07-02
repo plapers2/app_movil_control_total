@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -53,6 +53,8 @@ const VentasScreen = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loadingMas, setLoadingMas] = useState(false);
+  const [busqueda, setBusqueda] = useState('');
+  const [buscando, setBuscando] = useState(false);
 
   // Form state
   const [items, setItems] = useState([]);
@@ -61,19 +63,23 @@ const VentasScreen = () => {
   const [abonoInicial, setAbonoInicial] = useState('');
   const [modalProductos, setModalProductos] = useState(false);
 
-  const paramsFecha = criterio => {
+  const paramsFecha = (criterio, textoBusqueda) => {
     const params = new URLSearchParams({ periodo: criterio.periodo });
     if (criterio.desde && criterio.hasta) {
       params.set('desde', criterio.desde);
       params.set('hasta', criterio.hasta);
     }
+    if (textoBusqueda?.trim()) params.set('q', textoBusqueda.trim());
     return params;
   };
 
   const cargar = useCallback(
-    async (criterioActual = { periodo, ...(rango || {}) }) => {
+    async (
+      criterioActual = { periodo, ...(rango || {}) },
+      textoBusqueda = busqueda,
+    ) => {
       try {
-        const qp = paramsFecha(criterioActual);
+        const qp = paramsFecha(criterioActual, textoBusqueda);
         const [v, p, c] = await Promise.all([
           client.get(`/ventas?${qp.toString()}&page=1&limit=10`),
           client.get('/productos?limit=1000'),
@@ -88,8 +94,9 @@ const VentasScreen = () => {
       const r = await getRol();
       setRol(r);
       setLoading(false);
+      setBuscando(false);
     },
-    [periodo, rango],
+    [periodo, rango, busqueda],
   );
 
   const verMas = async () => {
@@ -97,7 +104,7 @@ const VentasScreen = () => {
     try {
       setLoadingMas(true);
       const siguiente = page + 1;
-      const qp = paramsFecha({ periodo, ...(rango || {}) });
+      const qp = paramsFecha({ periodo, ...(rango || {}) }, busqueda);
       const res = await client.get(
         `/ventas?${qp.toString()}&page=${siguiente}&limit=10`,
       );
@@ -111,6 +118,17 @@ const VentasScreen = () => {
     }
   };
 
+  // Debounce: espera 400ms sin escribir antes de buscar en el servidor
+  useEffect(() => {
+    if (loading) return;
+    setBuscando(true);
+    const timer = setTimeout(() => {
+      cargar({ periodo, ...(rango || {}) }, busqueda);
+    }, 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busqueda]);
+
   const cambiarPeriodo = criterio => {
     setPeriodo(criterio.periodo);
     setRango(
@@ -122,10 +140,17 @@ const VentasScreen = () => {
     cargar(criterio);
   };
 
+  // Ref para que useFocusEffect siempre llame la versión más reciente de cargar()
+  // sin depender de su identidad (que cambia con cada tecla escrita en busqueda)
+  const cargarRef = useRef(cargar);
+  useEffect(() => {
+    cargarRef.current = cargar;
+  }, [cargar]);
+
   useFocusEffect(
     useCallback(() => {
-      cargar();
-    }, [cargar]),
+      cargarRef.current();
+    }, []),
   );
 
   const agregarItem = producto => {
@@ -347,6 +372,30 @@ const VentasScreen = () => {
       </View>
 
       <FiltroPeriodo periodo={periodo} onChange={cambiarPeriodo} />
+
+      <View style={s.buscadorWrap}>
+        <TextInput
+          style={s.buscadorInput}
+          placeholder="Buscar por # venta, cliente o producto..."
+          value={busqueda}
+          onChangeText={setBusqueda}
+          autoCapitalize="none"
+        />
+        {buscando ? (
+          <ActivityIndicator
+            size="small"
+            color="#E63946"
+            style={s.buscadorIcono}
+          />
+        ) : busqueda.length > 0 ? (
+          <TouchableOpacity
+            onPress={() => setBusqueda('')}
+            style={s.buscadorIcono}
+          >
+            <Text style={s.buscadorLimpiar}>✕</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
 
       <FlatList
         data={ventas}
@@ -861,6 +910,25 @@ const s = StyleSheet.create({
     backgroundColor: '#fff',
   },
   title: { fontSize: 22, fontWeight: 'bold', color: '#333' },
+  buscadorWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
+  },
+  buscadorInput: {
+    flex: 1,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: '#333',
+  },
+  buscadorIcono: { marginLeft: 8 },
+  buscadorLimpiar: { fontSize: 16, color: '#999', padding: 4 },
   btnNew: {
     backgroundColor: '#E63946',
     paddingHorizontal: 14,
