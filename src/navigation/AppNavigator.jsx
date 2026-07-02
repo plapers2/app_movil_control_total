@@ -14,6 +14,7 @@ import InsumosScreen from '../screens/InsumosScreen';
 import ProductosScreen from '../screens/ProductosScreen';
 import ProduccionScreen from '../screens/ProduccionScreen';
 import ClientesScreen from '../screens/ClientesScreen';
+import ClientesInactivosScreen from '../screens/ClientesInactivosScreen';
 import CajaScreen from '../screens/CajaScreen';
 import DeudasScreen from '../screens/DeudasScreen';
 import UsuariosScreen from '../screens/UsuariosScreen';
@@ -163,6 +164,10 @@ const AppNavigator = () => {
           }}
         </Stack.Screen>
         <Stack.Screen name="Deudas" component={DeudasScreen} />
+        <Stack.Screen
+          name="ClientesInactivos"
+          component={ClientesInactivosScreen}
+        />
         <Stack.Screen name="Usuarios" component={UsuariosScreen} />
       </Stack.Navigator>
     </NavigationContainer>

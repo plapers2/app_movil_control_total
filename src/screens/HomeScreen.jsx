@@ -183,6 +183,7 @@ const HomeScreen = () => {
           { label: '👥 Clientes', screen: 'Clientes' },
           { label: '💰 Caja', screen: 'Caja' },
           { label: '🧾 Deudas', screen: 'Deudas' },
+          { label: '⏰ Clientes inactivos', screen: 'ClientesInactivos' },
           ...(rol === 'admin'
             ? [{ label: '👤 Usuarios', screen: 'Usuarios' }]
             : []),
