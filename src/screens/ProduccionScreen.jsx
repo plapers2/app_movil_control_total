@@ -218,16 +218,26 @@ const ProduccionScreen = () => {
 
   // Filtro de periodo y paginación
   const [periodo, setPeriodo] = useState('dia');
+  const [rango, setRango] = useState(null); // { desde, hasta } cuando periodo === 'rango'
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loadingMas, setLoadingMas] = useState(false);
 
+  const paramsFecha = criterio => {
+    const params = new URLSearchParams({ periodo: criterio.periodo });
+    if (criterio.desde && criterio.hasta) {
+      params.set('desde', criterio.desde);
+      params.set('hasta', criterio.hasta);
+    }
+    return params;
+  };
+
   const cargar = useCallback(
-    async (periodoActual = periodo) => {
-      console.log('🔍 Pidiendo produccion con periodo:', periodoActual);
+    async (criterioActual = { periodo, ...(rango || {}) }) => {
       try {
+        const qp = paramsFecha(criterioActual);
         const [l, p] = await Promise.all([
-          client.get(`/produccion?periodo=${periodoActual}&page=1&limit=10`),
+          client.get(`/produccion?${qp.toString()}&page=1&limit=10`),
           client.get('/productos'),
         ]);
         setLotes(l.data.data);
@@ -239,7 +249,7 @@ const ProduccionScreen = () => {
       setRol(r);
       setLoading(false);
     },
-    [periodo],
+    [periodo, rango],
   );
 
   const verMas = async () => {
@@ -247,8 +257,9 @@ const ProduccionScreen = () => {
     try {
       setLoadingMas(true);
       const siguiente = page + 1;
+      const qp = paramsFecha({ periodo, ...(rango || {}) });
       const res = await client.get(
-        `/produccion?periodo=${periodo}&page=${siguiente}&limit=10`,
+        `/produccion?${qp.toString()}&page=${siguiente}&limit=10`,
       );
       setLotes(prev => [...prev, ...res.data.data]);
       setPage(siguiente);
@@ -260,10 +271,15 @@ const ProduccionScreen = () => {
     }
   };
 
-  const cambiarPeriodo = nuevoPeriodo => {
-    setPeriodo(nuevoPeriodo);
+  const cambiarPeriodo = criterio => {
+    setPeriodo(criterio.periodo);
+    setRango(
+      criterio.periodo === 'rango'
+        ? { desde: criterio.desde, hasta: criterio.hasta }
+        : null,
+    );
     setLoading(true);
-    cargar(nuevoPeriodo);
+    cargar(criterio);
   };
 
   const productosEnLotes = productos.filter(p =>

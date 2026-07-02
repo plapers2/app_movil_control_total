@@ -46,6 +46,7 @@ const VentasScreen = () => {
 
   // Filtro y paginación
   const [periodo, setPeriodo] = useState('dia');
+  const [rango, setRango] = useState(null); // { desde, hasta } cuando periodo === 'rango'
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loadingMas, setLoadingMas] = useState(false);
@@ -57,11 +58,21 @@ const VentasScreen = () => {
   const [abonoInicial, setAbonoInicial] = useState('');
   const [busquedaProducto, setBusquedaProducto] = useState('');
 
+  const paramsFecha = criterio => {
+    const params = new URLSearchParams({ periodo: criterio.periodo });
+    if (criterio.desde && criterio.hasta) {
+      params.set('desde', criterio.desde);
+      params.set('hasta', criterio.hasta);
+    }
+    return params;
+  };
+
   const cargar = useCallback(
-    async (periodoActual = periodo) => {
+    async (criterioActual = { periodo, ...(rango || {}) }) => {
       try {
+        const qp = paramsFecha(criterioActual);
         const [v, p, c] = await Promise.all([
-          client.get(`/ventas?periodo=${periodoActual}&page=1&limit=10`),
+          client.get(`/ventas?${qp.toString()}&page=1&limit=10`),
           client.get('/productos?limit=1000'),
           client.get('/clientes'),
         ]);
@@ -75,7 +86,7 @@ const VentasScreen = () => {
       setRol(r);
       setLoading(false);
     },
-    [periodo],
+    [periodo, rango],
   );
 
   const verMas = async () => {
@@ -83,8 +94,9 @@ const VentasScreen = () => {
     try {
       setLoadingMas(true);
       const siguiente = page + 1;
+      const qp = paramsFecha({ periodo, ...(rango || {}) });
       const res = await client.get(
-        `/ventas?periodo=${periodo}&page=${siguiente}&limit=10`,
+        `/ventas?${qp.toString()}&page=${siguiente}&limit=10`,
       );
       setVentas(prev => [...prev, ...res.data.data]);
       setPage(siguiente);
@@ -96,10 +108,15 @@ const VentasScreen = () => {
     }
   };
 
-  const cambiarPeriodo = nuevoPeriodo => {
-    setPeriodo(nuevoPeriodo);
+  const cambiarPeriodo = criterio => {
+    setPeriodo(criterio.periodo);
+    setRango(
+      criterio.periodo === 'rango'
+        ? { desde: criterio.desde, hasta: criterio.hasta }
+        : null,
+    );
     setLoading(true);
-    cargar(nuevoPeriodo);
+    cargar(criterio);
   };
 
   useFocusEffect(

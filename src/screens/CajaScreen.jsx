@@ -58,18 +58,30 @@ const CajaScreen = () => {
   const [busquedaInsumo, setBusquedaInsumo] = useState('');
   const [insumosForm, setInsumosForm] = useState([]); // [{ insumos_id, nombre, unidad_medida, cantidad }]
 
-  // Filtro de periodo y paginación (lista de movimientos)
+  // Filtro de periodo (dia|semana|mes|total|rango) y paginación (lista de movimientos)
   const [periodo, setPeriodo] = useState('dia');
+  const [rango, setRango] = useState(null); // { desde, hasta } cuando periodo === 'rango'
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loadingMas, setLoadingMas] = useState(false);
 
+  // Arma los query params de fecha (periodo, o desde/hasta si es rango personalizado)
+  const paramsFecha = criterio => {
+    const params = new URLSearchParams({ periodo: criterio.periodo });
+    if (criterio.desde && criterio.hasta) {
+      params.set('desde', criterio.desde);
+      params.set('hasta', criterio.hasta);
+    }
+    return params;
+  };
+
   const cargar = useCallback(
-    async (periodoActual = periodo) => {
+    async (criterioActual = { periodo, ...(rango || {}) }) => {
       try {
+        const qp = paramsFecha(criterioActual);
         const [m, r, i] = await Promise.all([
-          client.get(`/caja?periodo=${periodoActual}&page=1&limit=10`),
-          client.get(`/caja/resumen?periodo=${periodoActual}`),
+          client.get(`/caja?${qp.toString()}&page=1&limit=10`),
+          client.get(`/caja/resumen?${qp.toString()}`),
           client.get('/insumos'),
         ]);
         setMovimientos(m.data.data);
@@ -82,7 +94,7 @@ const CajaScreen = () => {
       setRol(rolGuardado);
       setLoading(false);
     },
-    [periodo],
+    [periodo, rango],
   );
 
   const verMas = async () => {
@@ -90,8 +102,9 @@ const CajaScreen = () => {
     try {
       setLoadingMas(true);
       const siguiente = page + 1;
+      const qp = paramsFecha({ periodo, ...(rango || {}) });
       const res = await client.get(
-        `/caja?periodo=${periodo}&page=${siguiente}&limit=10`,
+        `/caja?${qp.toString()}&page=${siguiente}&limit=10`,
       );
       setMovimientos(prev => [...prev, ...res.data.data]);
       setPage(siguiente);
@@ -103,10 +116,15 @@ const CajaScreen = () => {
     }
   };
 
-  const cambiarPeriodo = nuevoPeriodo => {
-    setPeriodo(nuevoPeriodo);
+  const cambiarPeriodo = criterio => {
+    setPeriodo(criterio.periodo);
+    setRango(
+      criterio.periodo === 'rango'
+        ? { desde: criterio.desde, hasta: criterio.hasta }
+        : null,
+    );
     setLoading(true);
-    cargar(nuevoPeriodo);
+    cargar(criterio);
   };
 
   const agregarInsumoForm = insumo => {
@@ -258,13 +276,42 @@ const CajaScreen = () => {
       </View>
 
       {resumen && (
+        <TouchableOpacity
+          style={[
+            s.balanceActualCard,
+            {
+              borderLeftColor:
+                resumen.balanceTotal >= 0 ? '#457B9D' : '#E63946',
+            },
+          ]}
+          activeOpacity={1}
+        >
+          <Text style={s.balanceActualLabel}>
+            Balance actual (todo lo registrado)
+          </Text>
+          <Text
+            style={[
+              s.balanceActualValor,
+              { color: resumen.balanceTotal >= 0 ? '#457B9D' : '#E63946' },
+            ]}
+          >
+            {fmt(resumen.balanceTotal)}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {resumen && (
         <>
           <Text style={s.resumenPeriodoLabel}>
             {periodo === 'dia'
               ? 'Hoy'
               : periodo === 'semana'
               ? 'Esta semana'
-              : 'Este mes'}
+              : periodo === 'mes'
+              ? 'Este mes'
+              : periodo === 'total'
+              ? 'Todo lo registrado'
+              : 'Rango seleccionado'}
           </Text>
           <View style={s.resumen}>
             <View style={[s.resCard, { borderLeftColor: '#2DC653' }]}>
@@ -746,6 +793,22 @@ const s = StyleSheet.create({
     paddingTop: 50,
     backgroundColor: '#fff',
   },
+  balanceActualCard: {
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    elevation: 1,
+  },
+  balanceActualLabel: {
+    fontSize: 11,
+    color: '#888',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  balanceActualValor: { fontSize: 22, fontWeight: 'bold', marginTop: 2 },
   resumenPeriodoLabel: {
     fontSize: 12,
     fontWeight: '700',

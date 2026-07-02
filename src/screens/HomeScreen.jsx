@@ -26,11 +26,17 @@ const HomeScreen = () => {
   const [deudas, setDeudas] = useState(null);
   const [loading, setLoading] = useState(true);
   const [periodo, setPeriodo] = useState('dia');
+  const [rango, setRango] = useState(null); // { desde, hasta } cuando periodo === 'rango'
   const [rol, setRol] = useState(null);
 
-  const cargarResumen = async periodoActual => {
+  const cargarResumen = async (criterio = { periodo }) => {
     try {
-      const res = await client.get(`/caja/resumen?periodo=${periodoActual}`);
+      const params = new URLSearchParams({ periodo: criterio.periodo });
+      if (criterio.desde && criterio.hasta) {
+        params.set('desde', criterio.desde);
+        params.set('hasta', criterio.hasta);
+      }
+      const res = await client.get(`/caja/resumen?${params.toString()}`);
       setResumen(res.data.data);
     } catch {}
   };
@@ -50,18 +56,26 @@ const HomeScreen = () => {
         const r = await getRol();
         setEmpresa(e);
         setRol(r);
-        await Promise.all([cargarResumen(periodo), cargarDeudas()]);
+        await Promise.all([
+          cargarResumen({ periodo, ...(rango || {}) }),
+          cargarDeudas(),
+        ]);
         setLoading(false);
       };
       load();
     });
     return unsubscribe;
-  }, [navigation, periodo]);
+  }, [navigation, periodo, rango]);
 
-  const cambiarPeriodo = nuevoPeriodo => {
-    setPeriodo(nuevoPeriodo);
+  const cambiarPeriodo = criterio => {
+    setPeriodo(criterio.periodo);
+    setRango(
+      criterio.periodo === 'rango'
+        ? { desde: criterio.desde, hasta: criterio.hasta }
+        : null,
+    );
     setLoading(true);
-    cargarResumen(nuevoPeriodo).finally(() => setLoading(false));
+    cargarResumen(criterio).finally(() => setLoading(false));
   };
 
   const handleLogout = async () => {
@@ -85,13 +99,39 @@ const HomeScreen = () => {
         </TouchableOpacity>
       </View>
 
+      {/* Balance actual: todo lo registrado en el sistema, siempre visible sin
+          importar el filtro de periodo que se elija abajo. */}
+      <TouchableOpacity
+        style={[
+          s.balanceCard,
+          {
+            borderLeftColor: resumen?.balanceTotal >= 0 ? '#457B9D' : '#E63946',
+          },
+        ]}
+        onPress={() => navigation.navigate('Caja')}
+      >
+        <Text style={s.balanceLabel}>Balance actual (todo lo registrado)</Text>
+        <Text
+          style={[
+            s.balanceValor,
+            { color: resumen?.balanceTotal >= 0 ? '#457B9D' : '#E63946' },
+          ]}
+        >
+          {loading ? '···' : fmt(resumen?.balanceTotal)}
+        </Text>
+      </TouchableOpacity>
+
       <Text style={s.section}>
         Resumen de{' '}
         {periodo === 'dia'
           ? 'hoy'
           : periodo === 'semana'
           ? 'la semana'
-          : 'el mes'}
+          : periodo === 'mes'
+          ? 'el mes'
+          : periodo === 'total'
+          ? 'todo lo registrado'
+          : 'el rango seleccionado'}
       </Text>
 
       <FiltroPeriodo periodo={periodo} onChange={cambiarPeriodo} />
@@ -182,6 +222,22 @@ const s = StyleSheet.create({
     marginTop: 20,
     marginBottom: 10,
   },
+  balanceCard: {
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    elevation: 2,
+  },
+  balanceLabel: {
+    fontSize: 12,
+    color: '#888',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  balanceValor: { fontSize: 26, fontWeight: 'bold', marginTop: 4 },
   cards: { flexDirection: 'row', paddingHorizontal: 12, gap: 8 },
   deudaCard: {
     flexDirection: 'row',
