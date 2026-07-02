@@ -34,6 +34,7 @@ const CajaScreen = () => {
   const [form, setForm] = useState({
     tipo: 'gasto',
     categoria: 'insumo',
+    tipo_servicio: null,
     monto: '',
     descripcion: '',
   });
@@ -45,6 +46,7 @@ const CajaScreen = () => {
   const [formEdit, setFormEdit] = useState({
     tipo: 'gasto',
     categoria: 'insumo',
+    tipo_servicio: null,
     monto: '',
     descripcion: '',
   });
@@ -163,6 +165,11 @@ const CajaScreen = () => {
   const guardar = async () => {
     if (!form.monto || !form.descripcion)
       return Alert.alert('Error', 'Monto y descripción son requeridos.');
+    if (form.categoria === 'servicio_publico' && !form.tipo_servicio)
+      return Alert.alert(
+        'Error',
+        'Selecciona el tipo de servicio (energía, agua o gas).',
+      );
     if (insumosForm.some(i => !Number(i.cantidad) || Number(i.cantidad) <= 0))
       return Alert.alert(
         'Error',
@@ -173,6 +180,10 @@ const CajaScreen = () => {
       await client.post('/caja', {
         tipo: form.tipo,
         categoria: form.categoria,
+        tipo_servicio:
+          form.categoria === 'servicio_publico'
+            ? form.tipo_servicio
+            : undefined,
         monto: Number(form.monto),
         descripcion: form.descripcion,
         fecha: getFechaHoyLocal(),
@@ -187,6 +198,7 @@ const CajaScreen = () => {
       setForm({
         tipo: 'gasto',
         categoria: 'insumo',
+        tipo_servicio: null,
         monto: '',
         descripcion: '',
       });
@@ -210,6 +222,7 @@ const CajaScreen = () => {
     setFormEdit({
       tipo: mov.tipo,
       categoria: mov.categoria,
+      tipo_servicio: mov.tipo_servicio || null,
       monto: String(mov.monto),
       descripcion: mov.descripcion || '',
     });
@@ -219,11 +232,20 @@ const CajaScreen = () => {
   const guardarEdicion = async () => {
     if (!formEdit.monto || !formEdit.descripcion)
       return Alert.alert('Error', 'Monto y descripción son requeridos.');
+    if (formEdit.categoria === 'servicio_publico' && !formEdit.tipo_servicio)
+      return Alert.alert(
+        'Error',
+        'Selecciona el tipo de servicio (energía, agua o gas).',
+      );
     try {
       setSavingEdit(true);
       await client.put(`/caja/${movEditando.id}`, {
         tipo: formEdit.tipo,
         categoria: formEdit.categoria,
+        tipo_servicio:
+          formEdit.categoria === 'servicio_publico'
+            ? formEdit.tipo_servicio
+            : undefined,
         monto: Number(formEdit.monto),
         descripcion: formEdit.descripcion,
         fecha: movEditando.fecha,
@@ -361,6 +383,7 @@ const CajaScreen = () => {
                 <Text style={s.cardDesc}>{item.descripcion}</Text>
                 <Text style={s.cardMeta}>
                   {fmtFecha(item.fecha)} · {item.categoria}
+                  {item.tipo_servicio ? ` (${item.tipo_servicio})` : ''}
                 </Text>
               </View>
               <Text
@@ -444,14 +467,19 @@ const CajaScreen = () => {
             <View style={s.chips}>
               <View style={s.chips}>
                 {(form.tipo === 'gasto'
-                  ? ['insumo', 'servicio', 'otro']
+                  ? ['insumo', 'servicio', 'servicio_publico', 'otro']
                   : ['venta', 'otro']
                 ).map(c => (
                   <TouchableOpacity
                     key={c}
                     style={[s.chip, form.categoria === c && s.chipActive]}
                     onPress={() => {
-                      setForm(p => ({ ...p, categoria: c }));
+                      setForm(p => ({
+                        ...p,
+                        categoria: c,
+                        tipo_servicio:
+                          c === 'servicio_publico' ? p.tipo_servicio : null,
+                      }));
                       if (c !== 'insumo') {
                         setInsumosForm([]);
                         setBusquedaInsumo('');
@@ -464,12 +492,41 @@ const CajaScreen = () => {
                         form.categoria === c && s.chipTextActive,
                       ]}
                     >
-                      {c}
+                      {c === 'servicio_publico' ? 'servicio público' : c}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
+
+            {form.tipo === 'gasto' && form.categoria === 'servicio_publico' && (
+              <>
+                <Text style={s.fieldLabel}>Tipo de servicio *</Text>
+                <View style={s.chips}>
+                  {['energia', 'agua', 'gas'].map(ts => (
+                    <TouchableOpacity
+                      key={ts}
+                      style={[
+                        s.chip,
+                        form.tipo_servicio === ts && s.chipActive,
+                      ]}
+                      onPress={() =>
+                        setForm(p => ({ ...p, tipo_servicio: ts }))
+                      }
+                    >
+                      <Text
+                        style={[
+                          s.chipText,
+                          form.tipo_servicio === ts && s.chipTextActive,
+                        ]}
+                      >
+                        {ts === 'energia' ? 'energía' : ts}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
 
             {form.tipo === 'gasto' && form.categoria === 'insumo' && (
               <View style={s.field}>
@@ -603,6 +660,12 @@ const CajaScreen = () => {
                 <Text style={s.detalleLabel}>Categoría</Text>
                 <Text style={s.detalleValor}>{movDetalle.categoria}</Text>
               </View>
+              {movDetalle.tipo_servicio && (
+                <View style={s.detalleSeccion}>
+                  <Text style={s.detalleLabel}>Tipo de servicio</Text>
+                  <Text style={s.detalleValor}>{movDetalle.tipo_servicio}</Text>
+                </View>
+              )}
               <View style={s.detalleSeccion}>
                 <Text style={s.detalleLabel}>Fecha</Text>
                 <Text style={s.detalleValor}>{fmtFecha(movDetalle.fecha)}</Text>
@@ -683,13 +746,20 @@ const CajaScreen = () => {
             <Text style={s.fieldLabel}>Categoría</Text>
             <View style={s.chips}>
               {(formEdit.tipo === 'gasto'
-                ? ['insumo', 'servicio', 'otro']
+                ? ['insumo', 'servicio', 'servicio_publico', 'otro']
                 : ['venta', 'otro']
               ).map(c => (
                 <TouchableOpacity
                   key={c}
                   style={[s.chip, formEdit.categoria === c && s.chipActive]}
-                  onPress={() => setFormEdit(p => ({ ...p, categoria: c }))}
+                  onPress={() =>
+                    setFormEdit(p => ({
+                      ...p,
+                      categoria: c,
+                      tipo_servicio:
+                        c === 'servicio_publico' ? p.tipo_servicio : null,
+                    }))
+                  }
                 >
                   <Text
                     style={[
@@ -697,11 +767,41 @@ const CajaScreen = () => {
                       formEdit.categoria === c && s.chipTextActive,
                     ]}
                   >
-                    {c}
+                    {c === 'servicio_publico' ? 'servicio público' : c}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
+
+            {formEdit.tipo === 'gasto' &&
+              formEdit.categoria === 'servicio_publico' && (
+                <>
+                  <Text style={s.fieldLabel}>Tipo de servicio *</Text>
+                  <View style={s.chips}>
+                    {['energia', 'agua', 'gas'].map(ts => (
+                      <TouchableOpacity
+                        key={ts}
+                        style={[
+                          s.chip,
+                          formEdit.tipo_servicio === ts && s.chipActive,
+                        ]}
+                        onPress={() =>
+                          setFormEdit(p => ({ ...p, tipo_servicio: ts }))
+                        }
+                      >
+                        <Text
+                          style={[
+                            s.chipText,
+                            formEdit.tipo_servicio === ts && s.chipTextActive,
+                          ]}
+                        >
+                          {ts === 'energia' ? 'energía' : ts}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
 
             <View style={s.field}>
               <Text style={s.fieldLabel}>Monto *</Text>

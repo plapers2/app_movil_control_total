@@ -31,6 +31,9 @@ const ProductosScreen = () => {
     nombre: '',
     descripcion: '',
     precio_venta: '',
+    usa_energia: false,
+    usa_agua: false,
+    usa_gas: false,
   });
 
   // Ingredientes de la receta en el formulario
@@ -58,7 +61,14 @@ const ProductosScreen = () => {
 
   const abrirNuevo = () => {
     setEditando(null);
-    setForm({ nombre: '', descripcion: '', precio_venta: '' });
+    setForm({
+      nombre: '',
+      descripcion: '',
+      precio_venta: '',
+      usa_energia: false,
+      usa_agua: false,
+      usa_gas: false,
+    });
     setReceta([]);
     setModal(true);
   };
@@ -69,6 +79,9 @@ const ProductosScreen = () => {
       nombre: item.nombre,
       descripcion: item.descripcion || '',
       precio_venta: String(item.precio_venta),
+      usa_energia: !!item.usa_energia,
+      usa_agua: !!item.usa_agua,
+      usa_gas: !!item.usa_gas,
     });
     setReceta(
       (item.recetas || []).map(r => ({
@@ -119,6 +132,9 @@ const ProductosScreen = () => {
         nombre: form.nombre,
         descripcion: form.descripcion,
         precio_venta: Number(form.precio_venta) || 0,
+        usa_energia: form.usa_energia,
+        usa_agua: form.usa_agua,
+        usa_gas: form.usa_gas,
       };
 
       let productoId;
@@ -215,6 +231,19 @@ const ProductosScreen = () => {
                 </View>
               )}
             </View>
+            {rol === 'admin' &&
+              (item.usa_energia || item.usa_agua || item.usa_gas) && (
+                <Text style={s.serviciosPreview}>
+                  ⚡{' '}
+                  {[
+                    item.usa_energia && 'Energía',
+                    item.usa_agua && 'Agua',
+                    item.usa_gas && 'Gas',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </Text>
+              )}
             {rol === 'admin' && item.recetas?.length > 0 && (
               <View style={s.recetaPreview}>
                 <Text style={s.recetaLabel}>🧾 Receta: </Text>
@@ -282,6 +311,41 @@ const ProductosScreen = () => {
                 keyboardType="numeric"
                 placeholder="Ej: 2500"
               />
+            </View>
+
+            <View style={s.field}>
+              <Text style={s.label}>
+                Servicios públicos que usa (para repartir el costo de luz, agua
+                y gas entre los productos que de verdad los consumen)
+              </Text>
+              <View style={s.servicioChips}>
+                {[
+                  { key: 'usa_energia', label: 'Energía' },
+                  { key: 'usa_agua', label: 'Agua' },
+                  { key: 'usa_gas', label: 'Gas' },
+                ].map(sv => (
+                  <TouchableOpacity
+                    key={sv.key}
+                    style={[
+                      s.servicioChip,
+                      form[sv.key] && s.servicioChipActive,
+                    ]}
+                    onPress={() =>
+                      setForm(p => ({ ...p, [sv.key]: !p[sv.key] }))
+                    }
+                  >
+                    <Text
+                      style={[
+                        s.servicioChipText,
+                        form[sv.key] && s.servicioChipTextActive,
+                      ]}
+                    >
+                      {form[sv.key] ? '✓ ' : ''}
+                      {sv.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
 
             {/* ── Receta ── */}
@@ -463,6 +527,7 @@ const s = StyleSheet.create({
     fontSize: 18,
     marginTop: 6,
   },
+  serviciosPreview: { fontSize: 11, color: '#888', marginTop: 4 },
   actions: { flexDirection: 'row', gap: 8, marginLeft: 8 },
   editBtn: { padding: 2 },
   recetaPreview: {
@@ -499,6 +564,18 @@ const s = StyleSheet.create({
   },
   field: { paddingHorizontal: 16, paddingTop: 12 },
   label: { fontSize: 13, color: '#888', marginBottom: 6 },
+  servicioChips: { flexDirection: 'row', gap: 8 },
+  servicioChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#fafafa',
+  },
+  servicioChipActive: { backgroundColor: '#E63946', borderColor: '#E63946' },
+  servicioChipText: { color: '#888', fontSize: 13, fontWeight: '600' },
+  servicioChipTextActive: { color: '#fff' },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
