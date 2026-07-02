@@ -17,6 +17,7 @@ import { getFechaHoyLocal } from '../utils/date';
 import { getRol } from '../store/authStore';
 import FiltroPeriodo from '../components/FiltroPeriodo';
 import BotonVerMas from '../components/BotonVerMas';
+import { coincide } from '../utils/texto';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 const fmtFecha = d => new Date(d).toLocaleDateString('es-CO');
@@ -429,13 +430,7 @@ const VentasScreen = () => {
             {busquedaProducto.trim().length > 0 && (
               <View style={s.dropdown}>
                 {productos
-                  .filter(
-                    p =>
-                      p.activo &&
-                      p.nombre
-                        .toLowerCase()
-                        .includes(busquedaProducto.trim().toLowerCase()),
-                  )
+                  .filter(p => p.activo && coincide(p.nombre, busquedaProducto))
                   .map(p => (
                     <TouchableOpacity
                       key={p.id}
@@ -450,11 +445,7 @@ const VentasScreen = () => {
                     </TouchableOpacity>
                   ))}
                 {!productos.some(
-                  p =>
-                    p.activo &&
-                    p.nombre
-                      .toLowerCase()
-                      .includes(busquedaProducto.trim().toLowerCase()),
+                  p => p.activo && coincide(p.nombre, busquedaProducto),
                 ) && <Text style={s.empty}>Sin resultados</Text>}
               </View>
             )}
@@ -691,11 +682,10 @@ const VentasScreen = () => {
           </View>
           <FlatList
             data={clientes.filter(c => {
-              const q = busquedaCliente.trim().toLowerCase();
-              if (!q) return true;
+              if (!busquedaCliente.trim()) return true;
               return (
-                c.nombre.toLowerCase().includes(q) ||
-                (c.telefono || '').toLowerCase().includes(q)
+                coincide(c.nombre, busquedaCliente) ||
+                coincide(c.telefono, busquedaCliente)
               );
             })}
             keyExtractor={c => String(c.id)}
@@ -795,11 +785,7 @@ const VentasScreen = () => {
               <View style={s.dropdown}>
                 {productos
                   .filter(
-                    p =>
-                      p.activo &&
-                      p.nombre
-                        .toLowerCase()
-                        .includes(busquedaProductoEdit.trim().toLowerCase()),
+                    p => p.activo && coincide(p.nombre, busquedaProductoEdit),
                   )
                   .map(p => (
                     <TouchableOpacity

@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import client from '../api/client';
+import { coincide } from '../utils/texto';
 
 const ClientesScreen = () => {
   const [clientes, setClientes] = useState([]);
@@ -121,12 +122,11 @@ const ClientesScreen = () => {
       <FlatList
         data={clientes.filter(c => {
           if (!c.activo) return false;
-          const q = busqueda.trim().toLowerCase();
-          if (!q) return true;
+          if (!busqueda.trim()) return true;
           return (
-            c.nombre.toLowerCase().includes(q) ||
-            (c.telefono || '').toLowerCase().includes(q) ||
-            (c.direccion || '').toLowerCase().includes(q)
+            coincide(c.nombre, busqueda) ||
+            coincide(c.telefono, busqueda) ||
+            coincide(c.direccion, busqueda)
           );
         })}
         keyExtractor={item => String(item.id)}

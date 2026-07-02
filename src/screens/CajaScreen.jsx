@@ -17,6 +17,7 @@ import { getFechaHoyLocal } from '../utils/date';
 import { getRol } from '../store/authStore';
 import FiltroPeriodo from '../components/FiltroPeriodo';
 import BotonVerMas from '../components/BotonVerMas';
+import { coincide } from '../utils/texto';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 const fmtFecha = d => {
@@ -497,9 +498,7 @@ const CajaScreen = () => {
                       .filter(
                         i =>
                           !insumosForm.some(f => f.insumos_id === i.id) &&
-                          i.nombre
-                            .toLowerCase()
-                            .includes(busquedaInsumo.trim().toLowerCase()),
+                          coincide(i.nombre, busquedaInsumo),
                       )
                       .map(i => (
                         <TouchableOpacity
@@ -514,9 +513,7 @@ const CajaScreen = () => {
                     {!insumos.some(
                       i =>
                         !insumosForm.some(f => f.insumos_id === i.id) &&
-                        i.nombre
-                          .toLowerCase()
-                          .includes(busquedaInsumo.trim().toLowerCase()),
+                        coincide(i.nombre, busquedaInsumo),
                     ) && <Text style={s.empty}>Sin resultados</Text>}
                   </View>
                 )}
