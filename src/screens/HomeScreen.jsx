@@ -185,6 +185,9 @@ const HomeScreen = () => {
           { label: '🧾 Deudas', screen: 'Deudas' },
           { label: '⏰ Clientes inactivos', screen: 'ClientesInactivos' },
           ...(rol === 'admin'
+            ? [{ label: '📊 Rentabilidad', screen: 'Rentabilidad' }]
+            : []),
+          ...(rol === 'admin'
             ? [{ label: '👤 Usuarios', screen: 'Usuarios' }]
             : []),
         ].map(item => (

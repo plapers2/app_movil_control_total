@@ -72,6 +72,8 @@ const PasoInsumos = ({ producto, onGuardar, onVolver, saving }) => {
     })),
   );
   const [notas, setNotas] = useState('');
+  const [costoTotal, setCostoTotal] = useState('');
+  const sinReceta = !producto.recetas || producto.recetas.length === 0;
 
   // Recalcular cantidades al cambiar la cantidad de producción
   const onCantidadChange = v => {
@@ -96,10 +98,18 @@ const PasoInsumos = ({ producto, onGuardar, onVolver, saving }) => {
     if (!cantNum || cantNum <= 0)
       return Alert.alert('Error', 'La cantidad debe ser mayor a 0.');
 
+    if (sinReceta && (!costoTotal || Number(costoTotal) <= 0)) {
+      return Alert.alert(
+        'Error',
+        'Ingresa cuánto pagaste en total por este lote.',
+      );
+    }
+
     onGuardar({
       productos_id: producto.id,
       cantidad: cantNum,
       notas,
+      costo_total: sinReceta ? Number(costoTotal) : undefined,
       insumos_reales: insumos.map(i => ({
         insumos_id: i.insumos_id,
         cantidad: Number(i.cantidad_real) || 0,
@@ -167,6 +177,29 @@ const PasoInsumos = ({ producto, onGuardar, onVolver, saving }) => {
         </View>
       )}
 
+      {sinReceta && (
+        <View style={s.field}>
+          <Text style={s.label}>¿Cuánto pagaste en total por este lote? *</Text>
+          <Text style={s.sectionHint}>
+            Ej: compraste 10 paquetes por $70.000 y de ahí salen{' '}
+            {cantidad || '__'} unidades para vender. Ingresa los $70.000, el
+            costo por unidad se calcula solo.
+          </Text>
+          <TextInput
+            style={s.input}
+            value={costoTotal}
+            onChangeText={setCostoTotal}
+            keyboardType="numeric"
+            placeholder="Ej: 70000"
+          />
+          {Number(costoTotal) > 0 && Number(cantidad) > 0 && (
+            <Text style={s.sectionHint}>
+              Costo por unidad: {fmt(Number(costoTotal) / Number(cantidad))}
+            </Text>
+          )}
+        </View>
+      )}
+
       {/* Notas */}
       <View style={s.field}>
         <Text style={s.label}>Notas (opcional)</Text>
@@ -209,6 +242,7 @@ const ProduccionScreen = () => {
   const [loteEditando, setLoteEditando] = useState(null);
   const [cantidadEdit, setCantidadEdit] = useState('1');
   const [insumosEdit, setInsumosEdit] = useState([]);
+  const [costoTotalEdit, setCostoTotalEdit] = useState('');
   const [notasEdit, setNotasEdit] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
   const [modalAnular, setModalAnular] = useState(false);
@@ -338,6 +372,14 @@ const ProduccionScreen = () => {
           cantidad: String(m.cantidad),
         })),
       );
+      // Si el item no tiene insumos asociados, es un producto sin receta:
+      // precargamos el costo total actual (costo_unitario × cantidad) para
+      // que se pueda corregir.
+      setCostoTotalEdit(
+        item && Number(item.costo_unitario) > 0
+          ? String(Math.round(Number(item.costo_unitario) * item.cantidad))
+          : '',
+      );
       setModalEditar(true);
     } catch {
       Alert.alert('Error', 'No se pudo cargar el lote.');
@@ -358,11 +400,24 @@ const ProduccionScreen = () => {
       return Alert.alert('Error', 'Revisa las cantidades de los insumos.');
 
     const item = loteEditando.lotes_produccion_items?.[0];
+    const sinRecetaEdit = insumosEdit.length === 0;
+    if (sinRecetaEdit && (!costoTotalEdit || Number(costoTotalEdit) <= 0)) {
+      return Alert.alert(
+        'Error',
+        'Ingresa cuánto pagaste en total por este lote.',
+      );
+    }
     try {
       setSavingEdit(true);
       await client.put(`/produccion/${loteEditando.id}`, {
         notas: notasEdit,
-        items: [{ productos_id: item.productos_id, cantidad: cantNum }],
+        items: [
+          {
+            productos_id: item.productos_id,
+            cantidad: cantNum,
+            costo_total: sinRecetaEdit ? Number(costoTotalEdit) : undefined,
+          },
+        ],
         insumos_reales: insumosEdit.map(i => ({
           insumos_id: i.insumos_id,
           cantidad: Number(i.cantidad) || 0,
@@ -400,13 +455,19 @@ const ProduccionScreen = () => {
     }
   };
 
-  const guardar = async ({ productos_id, cantidad, notas, insumos_reales }) => {
+  const guardar = async ({
+    productos_id,
+    cantidad,
+    notas,
+    insumos_reales,
+    costo_total,
+  }) => {
     try {
       setSaving(true);
       await client.post('/produccion', {
         fecha: getFechaHoyLocal(),
         notas,
-        items: [{ productos_id, cantidad }],
+        items: [{ productos_id, cantidad, costo_total }],
         insumos_reales, // para descuento real si el backend lo soporta
       });
       setModal(false);
@@ -665,7 +726,7 @@ const ProduccionScreen = () => {
               />
             </View>
 
-            {insumosEdit.length > 0 && (
+            {insumosEdit.length > 0 ? (
               <>
                 <Text style={s.sectionLabel}>Insumos utilizados</Text>
                 {insumosEdit.map((item, idx) => (
@@ -683,6 +744,19 @@ const ProduccionScreen = () => {
                   </View>
                 ))}
               </>
+            ) : (
+              <View style={s.field}>
+                <Text style={s.label}>
+                  ¿Cuánto pagaste en total por este lote? *
+                </Text>
+                <TextInput
+                  style={s.input}
+                  value={costoTotalEdit}
+                  onChangeText={setCostoTotalEdit}
+                  keyboardType="numeric"
+                  placeholder="Ej: 70000"
+                />
+              </View>
             )}
 
             <View style={s.field}>
