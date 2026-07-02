@@ -30,6 +30,7 @@ const VentasScreen = () => {
   const [clientes, setClientes] = useState([]);
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
   const [modalClientes, setModalClientes] = useState(false);
+  const [busquedaCliente, setBusquedaCliente] = useState('');
   const [ventaDetalle, setVentaDetalle] = useState(null);
   const [modalDetalle, setModalDetalle] = useState(false);
   const [rol, setRol] = useState(null);
@@ -656,21 +657,55 @@ const VentasScreen = () => {
       <Modal
         visible={modalClientes}
         animationType="slide"
-        onRequestClose={() => setModalClientes(false)}
+        onRequestClose={() => {
+          setModalClientes(false);
+          setBusquedaCliente('');
+        }}
       >
         <View style={s.modal}>
           <View style={s.modalHeader}>
             <Text style={s.modalTitle}>Seleccionar cliente</Text>
-            <TouchableOpacity onPress={() => setModalClientes(false)}>
+            <TouchableOpacity
+              onPress={() => {
+                setModalClientes(false);
+                setBusquedaCliente('');
+              }}
+            >
               <Text style={s.close}>✕</Text>
             </TouchableOpacity>
           </View>
+          <View style={[s.buscadorBox, { margin: 16, marginBottom: 0 }]}>
+            <TextInput
+              style={s.buscadorInput}
+              value={busquedaCliente}
+              onChangeText={setBusquedaCliente}
+              placeholder="Buscar cliente por nombre o teléfono..."
+              placeholderTextColor="#aaa"
+              autoFocus
+            />
+            {busquedaCliente.length > 0 && (
+              <TouchableOpacity onPress={() => setBusquedaCliente('')}>
+                <Text style={s.removeBtn}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
           <FlatList
-            data={clientes}
+            data={clientes.filter(c => {
+              const q = busquedaCliente.trim().toLowerCase();
+              if (!q) return true;
+              return (
+                c.nombre.toLowerCase().includes(q) ||
+                (c.telefono || '').toLowerCase().includes(q)
+              );
+            })}
             keyExtractor={c => String(c.id)}
             contentContainerStyle={{ padding: 16 }}
             ListEmptyComponent={
-              <Text style={s.empty}>Sin clientes registrados</Text>
+              <Text style={s.empty}>
+                {busquedaCliente.trim()
+                  ? 'Sin resultados'
+                  : 'Sin clientes registrados'}
+              </Text>
             }
             renderItem={({ item }) => (
               <TouchableOpacity
@@ -678,6 +713,7 @@ const VentasScreen = () => {
                 onPress={() => {
                   setClienteSeleccionado(item);
                   setModalClientes(false);
+                  setBusquedaCliente('');
                 }}
               >
                 <View>

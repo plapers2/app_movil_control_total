@@ -15,6 +15,7 @@ import client from '../api/client';
 
 const ClientesScreen = () => {
   const [clientes, setClientes] = useState([]);
+  const [busqueda, setBusqueda] = useState('');
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -102,12 +103,38 @@ const ClientesScreen = () => {
         </TouchableOpacity>
       </View>
 
+      <View style={s.buscadorBox}>
+        <TextInput
+          style={s.buscadorInput}
+          value={busqueda}
+          onChangeText={setBusqueda}
+          placeholder="Buscar por nombre, teléfono o dirección..."
+          placeholderTextColor="#aaa"
+        />
+        {busqueda.length > 0 && (
+          <TouchableOpacity onPress={() => setBusqueda('')}>
+            <Text style={s.removeBtn}>✕</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       <FlatList
-        data={clientes.filter(c => c.activo)}
+        data={clientes.filter(c => {
+          if (!c.activo) return false;
+          const q = busqueda.trim().toLowerCase();
+          if (!q) return true;
+          return (
+            c.nombre.toLowerCase().includes(q) ||
+            (c.telefono || '').toLowerCase().includes(q) ||
+            (c.direccion || '').toLowerCase().includes(q)
+          );
+        })}
         keyExtractor={item => String(item.id)}
         contentContainerStyle={{ padding: 16 }}
         ListEmptyComponent={
-          <Text style={s.empty}>Sin clientes registrados</Text>
+          <Text style={s.empty}>
+            {busqueda.trim() ? 'Sin resultados' : 'Sin clientes registrados'}
+          </Text>
         }
         renderItem={({ item }) => (
           <View style={s.card}>
@@ -204,6 +231,24 @@ const s = StyleSheet.create({
     borderRadius: 8,
   },
   btnNewText: { color: '#fff', fontWeight: '600' },
+  buscadorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+  },
+  buscadorInput: {
+    flex: 1,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#333',
+  },
+  removeBtn: { color: '#E63946', fontSize: 16 },
   empty: { textAlign: 'center', color: '#aaa', marginTop: 40 },
   card: {
     backgroundColor: '#fff',
