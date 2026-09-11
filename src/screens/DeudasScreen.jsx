@@ -13,11 +13,10 @@ import {
   ScrollView,
 } from 'react-native';
 import client from '../api/client';
-import { getFechaHoyLocal } from '../utils/date';
+import { getFechaHoyLocal, fmtFecha } from '../utils/date';
 import BotonVerMas from '../components/BotonVerMas';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
-const fmtFecha = d => new Date(d).toLocaleDateString('es-CO');
 
 const DeudasScreen = () => {
   const navigation = useNavigation();

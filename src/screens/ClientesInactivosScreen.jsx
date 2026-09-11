@@ -10,9 +10,9 @@ import {
   Alert,
 } from 'react-native';
 import client from '../api/client';
+import { fmtFecha as fmtFechaBase } from '../utils/date';
 
-const fmtFecha = d =>
-  d ? new Date(d).toLocaleDateString('es-CO') : null;
+const fmtFecha = d => (d ? fmtFechaBase(d) : null);
 
 const ClientesInactivosScreen = () => {
   const navigation = useNavigation();

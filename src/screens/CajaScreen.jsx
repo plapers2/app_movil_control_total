@@ -13,17 +13,13 @@ import {
   ScrollView,
 } from 'react-native';
 import client from '../api/client';
-import { getFechaHoyLocal } from '../utils/date';
+import { getFechaHoyLocal, fmtFecha } from '../utils/date';
 import { getRol } from '../store/authStore';
 import FiltroPeriodo from '../components/FiltroPeriodo';
 import BotonVerMas from '../components/BotonVerMas';
 import { coincide } from '../utils/texto';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
-const fmtFecha = d => {
-  const [y, m, dia] = String(d).slice(0, 10).split('-');
-  return `${dia}/${m}/${y}`;
-};
 
 const CajaScreen = () => {
   const [movimientos, setMovimientos] = useState([]);
