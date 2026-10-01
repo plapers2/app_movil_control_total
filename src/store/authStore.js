@@ -11,8 +11,15 @@ export const getEmpresa = async () => {
 };
 export const saveRol = rol => AsyncStorage.setItem('rol', rol);
 export const getRol = () => AsyncStorage.getItem('rol');
+export const saveUsuario = usuario =>
+  AsyncStorage.setItem('usuario', JSON.stringify(usuario));
+export const getUsuario = async () => {
+  const u = await AsyncStorage.getItem('usuario');
+  return u ? JSON.parse(u) : null;
+};
 export const clearSession = async () => {
   await AsyncStorage.removeItem('token');
   await AsyncStorage.removeItem('empresa');
   await AsyncStorage.removeItem('rol');
+  await AsyncStorage.removeItem('usuario');
 };

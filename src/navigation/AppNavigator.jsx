@@ -5,7 +5,10 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { ActivityIndicator, View } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
-import { getToken, getEmpresa, getRol } from '../store/authStore';
+import { getToken, getEmpresa, getRol, getUsuario } from '../store/authStore';
+import { navigationRef } from './navigationRef';
+import CambiarPasswordScreen from '../screens/CambiarPasswordScreen';
+import SuperadminScreen from '../screens/SuperadminScreen';
 import LoginScreen from '../screens/LoginScreen';
 import SelectEmpresaScreen from '../screens/SelectEmpresaScreen';
 import HomeScreen from '../screens/HomeScreen';
@@ -130,9 +133,14 @@ const AppNavigator = () => {
       const token = await getToken();
       const empresa = await getEmpresa();
       const rolGuardado = await getRol();
-      if (token && empresa) {
+      const usuario = await getUsuario();
+      if (token && usuario?.debe_cambiar_password) {
+        setInitialRoute('CambiarPassword');
+      } else if (token && empresa) {
         setRol(rolGuardado);
         setInitialRoute('Main');
+      } else if (token && usuario?.es_superadmin) {
+        setInitialRoute('Superadmin');
       } else if (token) {
         setInitialRoute('SelectEmpresa');
       } else {
@@ -151,7 +159,7 @@ const AppNavigator = () => {
     );
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         initialRouteName={initialRoute}
         screenOptions={{ headerShown: false }}
@@ -171,6 +179,11 @@ const AppNavigator = () => {
         />
         <Stack.Screen name="Rentabilidad" component={RentabilidadScreen} />
         <Stack.Screen name="Usuarios" component={UsuariosScreen} />
+        <Stack.Screen
+          name="CambiarPassword"
+          component={CambiarPasswordScreen}
+        />
+        <Stack.Screen name="Superadmin" component={SuperadminScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

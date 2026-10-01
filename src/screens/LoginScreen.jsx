@@ -8,7 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import client from '../api/client';
-import { saveToken } from '../store/authStore';
+import { saveToken, saveUsuario } from '../store/authStore';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -21,8 +21,17 @@ const LoginScreen = ({ navigation }) => {
     try {
       setLoading(true);
       const res = await client.post('/auth/login', { email, password });
-      await saveToken(res.data.data.token);
-      navigation.replace('SelectEmpresa', { empresas: res.data.data.empresas });
+      const { token, usuario, empresas } = res.data.data;
+      await saveToken(token);
+      await saveUsuario(usuario);
+
+      if (usuario.debe_cambiar_password) {
+        navigation.replace('CambiarPassword');
+      } else if (usuario.es_superadmin && empresas.length === 0) {
+        navigation.replace('Superadmin');
+      } else {
+        navigation.replace('SelectEmpresa', { empresas });
+      }
     } catch (err) {
       Alert.alert(
         'Error',

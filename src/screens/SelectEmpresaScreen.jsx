@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,20 @@ import {
   Alert,
 } from 'react-native';
 import client from '../api/client';
-import { saveToken, saveEmpresa, saveRol } from '../store/authStore';
+import {
+  saveToken,
+  saveEmpresa,
+  saveRol,
+  getUsuario,
+} from '../store/authStore';
 
 const SelectEmpresaScreen = ({ navigation, route }) => {
   const empresas = route.params?.empresas || [];
+  const [esSuper, setEsSuper] = useState(false);
+  
+  useEffect(() => {
+    getUsuario().then(u => setEsSuper(!!u?.es_superadmin));
+  }, []);
 
   const handleSelect = async membresia => {
     try {
@@ -33,6 +43,17 @@ const SelectEmpresaScreen = ({ navigation, route }) => {
       <FlatList
         data={empresas}
         keyExtractor={item => String(item.id)}
+        ListHeaderComponent={
+          esSuper ? (
+            <TouchableOpacity
+              style={[s.card, s.cardSuper]}
+              onPress={() => navigation.navigate('Superadmin')}
+            >
+              <Text style={s.name}>⚙️ Administrar empresas</Text>
+              <Text style={s.rol}>superadmin</Text>
+            </TouchableOpacity>
+          ) : null
+        }
         renderItem={({ item }) => (
           <TouchableOpacity style={s.card} onPress={() => handleSelect(item)}>
             <Text style={s.name}>{item.empresas?.nombre}</Text>
@@ -56,6 +77,7 @@ const s = StyleSheet.create({
   },
   name: { fontSize: 18, fontWeight: '600', color: '#333' },
   rol: { fontSize: 14, color: '#888', marginTop: 4 },
+  cardSuper: { borderColor: '#E63946', backgroundColor: '#FFF5F5' },
 });
 
 export default SelectEmpresaScreen;

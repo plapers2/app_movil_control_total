@@ -9,7 +9,12 @@ import {
 } from 'react-native';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import client from '../api/client';
-import { getEmpresa, clearSession, getRol } from '../store/authStore';
+import {
+  getEmpresa,
+  clearSession,
+  getRol,
+  getUsuario,
+} from '../store/authStore';
 import FiltroPeriodo from '../components/FiltroPeriodo';
 
 const Card = ({ label, value, color }) => (
@@ -28,6 +33,7 @@ const HomeScreen = () => {
   const [periodo, setPeriodo] = useState('dia');
   const [rango, setRango] = useState(null); // { desde, hasta } cuando periodo === 'rango'
   const [rol, setRol] = useState(null);
+  const [esSuper, setEsSuper] = useState(false);
 
   const cargarResumen = async (criterio = { periodo }) => {
     try {
@@ -54,6 +60,8 @@ const HomeScreen = () => {
       const load = async () => {
         const e = await getEmpresa();
         const r = await getRol();
+        const u = await getUsuario();
+        setEsSuper(!!u?.es_superadmin);
         setEmpresa(e);
         setRol(r);
         await Promise.all([
@@ -190,6 +198,7 @@ const HomeScreen = () => {
           ...(rol === 'admin'
             ? [{ label: '👤 Usuarios', screen: 'Usuarios' }]
             : []),
+          ...(esSuper ? [{ label: '⚙️ Empresas', screen: 'Superadmin' }] : []),
         ].map(item => (
           <TouchableOpacity
             key={item.screen}
