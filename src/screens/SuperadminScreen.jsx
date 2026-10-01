@@ -12,11 +12,13 @@ import {
 } from 'react-native';
 import client from '../api/client';
 import { clearSession } from '../store/authStore';
+import CredencialesModal from '../components/CredencialesModal';
 
 const SuperadminScreen = ({ navigation }) => {
   const [empresas, setEmpresas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [credenciales, setCredenciales] = useState(null);
 
   const cargar = useCallback(async () => {
     try {
@@ -44,6 +46,35 @@ const SuperadminScreen = ({ navigation }) => {
     await clearSession();
     navigation.dispatch(
       CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }),
+    );
+  };
+
+  const generarClave = usuario => {
+    Alert.alert(
+      'Generar clave temporal',
+      'Se creará una clave nueva y la anterior dejará de funcionar. ¿Continuar?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Generar',
+          onPress: async () => {
+            try {
+              const res = await client.post(
+                `/superadmin/usuarios/${usuario.id}/password-temporal`,
+              );
+              setCredenciales({
+                email: res.data.data.usuario.email,
+                password: res.data.data.password_temporal,
+              });
+            } catch (err) {
+              Alert.alert(
+                'No disponible',
+                err.response?.data?.message || 'No se pudo generar la clave.',
+              );
+            }
+          },
+        },
+      ],
     );
   };
 
@@ -80,6 +111,14 @@ const SuperadminScreen = ({ navigation }) => {
         data={empresas}
         keyExtractor={item => String(item.id)}
         contentContainerStyle={{ padding: 16 }}
+        ListHeaderComponent={
+          <TouchableOpacity
+            style={s.btnNueva}
+            onPress={() => navigation.navigate('NuevaEmpresa')}
+          >
+            <Text style={s.btnNuevaText}>+ Nueva empresa</Text>
+          </TouchableOpacity>
+        }
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -112,14 +151,36 @@ const SuperadminScreen = ({ navigation }) => {
                 <Text style={s.sinAdmin}>Sin admin asignado</Text>
               ) : (
                 admins.map(ue => (
-                  <Text key={ue.id} style={s.admin}>
-                    {ue.usuarios?.nombre} · {ue.usuarios?.email}
-                  </Text>
+                  <View key={ue.id} style={s.adminRow}>
+                    <Text style={s.admin}>
+                      {ue.usuarios?.nombre} · {ue.usuarios?.email}
+                    </Text>
+                    {ue.usuarios?.debe_cambiar_password ? (
+                      <View style={s.pendiente}>
+                        <Text style={s.pendienteText}>
+                          Pendiente de primer ingreso
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => generarClave(ue.usuarios)}
+                        >
+                          <Text style={s.verClave}>Generar clave temporal</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : null}
+                  </View>
                 ))
               )}
             </View>
           );
         }}
+      />
+
+      <CredencialesModal
+        visible={!!credenciales}
+        titulo="Clave temporal"
+        email={credenciales?.email}
+        password={credenciales?.password}
+        onClose={() => setCredenciales(null)}
       />
     </View>
   );
@@ -168,6 +229,23 @@ const s = StyleSheet.create({
   },
   admin: { fontSize: 14, color: '#333', marginTop: 2 },
   sinAdmin: { fontSize: 14, color: '#E63946', marginTop: 2 },
+  adminRow: { marginTop: 4 },
+  pendiente: { marginTop: 4 },
+  pendienteText: { fontSize: 12, color: '#B45309' },
+  verClave: {
+    fontSize: 13,
+    color: '#E63946',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  btnNueva: {
+    backgroundColor: '#E63946',
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  btnNuevaText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 });
 
 export default SuperadminScreen;

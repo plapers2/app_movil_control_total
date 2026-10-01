@@ -22,6 +22,7 @@ import RentabilidadScreen from '../screens/RentabilidadScreen';
 import CajaScreen from '../screens/CajaScreen';
 import DeudasScreen from '../screens/DeudasScreen';
 import UsuariosScreen from '../screens/UsuariosScreen';
+import NuevaEmpresaScreen from '../screens/NuevaEmpresaScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -184,6 +185,7 @@ const AppNavigator = () => {
           component={CambiarPasswordScreen}
         />
         <Stack.Screen name="Superadmin" component={SuperadminScreen} />
+        <Stack.Screen name="NuevaEmpresa" component={NuevaEmpresaScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
