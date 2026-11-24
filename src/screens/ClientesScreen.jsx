@@ -10,6 +10,7 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import client from '../api/client';
 import { getRol } from '../store/authStore';
@@ -18,6 +19,10 @@ import { avisarError } from '../utils/errores';
 import FormScroll from '../components/FormScroll';
 import { HEADER_TOP, BOTTOM_INSET } from '../utils/safeArea';
 import { colors } from '../theme/colors';
+import KeyboardView from '../components/KeyboardView';
+import { getFechaHoyLocal, fmtFecha } from '../utils/date';
+import { aDinero } from '../utils/validar';
+import { fmt } from '../utils/formato';
 
 const ClientesScreen = () => {
   const [clientes, setClientes] = useState([]);
@@ -27,6 +32,13 @@ const ClientesScreen = () => {
   const [saving, setSaving] = useState(false);
   const [editando, setEditando] = useState(null);
   const [rol, setRol] = useState(null);
+  const [modalFicha, setModalFicha] = useState(false);
+  const [fichaCliente, setFichaCliente] = useState(null);
+  const [saldoInfo, setSaldoInfo] = useState(null);
+  const [montoSaldo, setMontoSaldo] = useState('');
+  const [notaSaldo, setNotaSaldo] = useState('');
+  const [enCaja, setEnCaja] = useState(true);
+  const [savingSaldo, setSavingSaldo] = useState(false);
   const esAdmin = rol === 'admin';
   const [form, setForm] = useState({
     nombre: '',
@@ -107,6 +119,62 @@ const ClientesScreen = () => {
     ]);
   };
 
+  const cargarSaldo = async id => {
+    try {
+      const res = await client.get(`/clientes/${id}/saldo`);
+      setSaldoInfo(res.data.data);
+    } catch (err) {
+      avisarError(err, 'No se pudo cargar el saldo del cliente.');
+    }
+  };
+
+  const abrirFicha = item => {
+    setFichaCliente(item);
+    setSaldoInfo(null);
+    setMontoSaldo('');
+    setNotaSaldo('');
+    setEnCaja(true);
+    setModalFicha(true);
+    cargarSaldo(item.id);
+  };
+
+  const guardarSaldo = async devolucion => {
+    const m = aDinero(montoSaldo);
+    if (!(m > 0)) return Alert.alert('Error', 'Ingresa un monto válido.');
+    if (devolucion && m > (saldoInfo?.saldo_favor || 0))
+      return Alert.alert('Error', 'No puedes devolver más que el saldo.');
+    try {
+      setSavingSaldo(true);
+      await client.post(
+        `/clientes/${fichaCliente.id}/saldo${devolucion ? '/devolucion' : ''}`,
+        {
+          monto: m,
+          nota: notaSaldo,
+          fecha: getFechaHoyLocal(),
+          registrar_en_caja: enCaja,
+        },
+      );
+      setMontoSaldo('');
+      setNotaSaldo('');
+      await cargarSaldo(fichaCliente.id);
+      cargar();
+    } catch (err) {
+      Alert.alert(
+        'Error',
+        err.response?.data?.message || 'No se pudo registrar el movimiento.',
+      );
+    } finally {
+      setSavingSaldo(false);
+    }
+  };
+
+  const ETIQUETA_SALDO = {
+    deposito: 'Saldo dejado',
+    uso: 'Usado en venta',
+    devolucion: 'Devuelto en efectivo',
+    reintegro: 'Devuelto por venta anulada',
+  };
+
   if (loading)
     return (
       <View style={s.center}>
@@ -156,7 +224,7 @@ const ClientesScreen = () => {
           </Text>
         }
         renderItem={({ item }) => (
-          <View style={s.card}>
+          <TouchableOpacity style={s.card} onPress={() => abrirFicha(item)}>
             <View style={s.cardRow}>
               <View style={s.avatar}>
                 <Text style={s.avatarText}>
@@ -171,6 +239,11 @@ const ClientesScreen = () => {
                 {item.direccion ? (
                   <Text style={s.cardSub}>📍 {item.direccion}</Text>
                 ) : null}
+                {Number(item.saldo_favor) > 0 ? (
+                  <Text style={s.saldoTag}>
+                    💰 Saldo a favor {fmt(item.saldo_favor)}
+                  </Text>
+                ) : null}
               </View>
               {esAdmin && (
                 <View style={s.actions}>
@@ -184,9 +257,127 @@ const ClientesScreen = () => {
               )}
             </View>
             {item.notas ? <Text style={s.notas}>💬 {item.notas}</Text> : null}
-          </View>
+          </TouchableOpacity>
         )}
       />
+
+      <Modal
+        visible={modalFicha}
+        animationType="slide"
+        onRequestClose={() => setModalFicha(false)}
+      >
+        <View style={s.modal}>
+          <View style={s.modalHeader}>
+            <Text style={s.modalTitle}>{fichaCliente?.nombre}</Text>
+            <TouchableOpacity onPress={() => setModalFicha(false)}>
+              <Text style={s.close}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <KeyboardView>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ padding: 20, paddingBottom: 32 }}
+            >
+              {fichaCliente?.telefono ? (
+                <Text style={s.cardSub}>📞 {fichaCliente.telefono}</Text>
+              ) : null}
+              {fichaCliente?.direccion ? (
+                <Text style={s.cardSub}>📍 {fichaCliente.direccion}</Text>
+              ) : null}
+
+              <View style={s.saldoCard}>
+                <Text style={s.saldoCardLabel}>Saldo a favor</Text>
+                <Text style={s.saldoCardValor}>
+                  {saldoInfo ? fmt(saldoInfo.saldo_favor) : '...'}
+                </Text>
+              </View>
+
+              <Text style={s.label}>Monto</Text>
+              <TextInput
+                style={s.input}
+                value={montoSaldo}
+                onChangeText={setMontoSaldo}
+                keyboardType="numeric"
+                placeholder="0"
+              />
+              <Text style={[s.label, { marginTop: 12 }]}>Nota (opcional)</Text>
+              <TextInput
+                style={s.input}
+                value={notaSaldo}
+                onChangeText={setNotaSaldo}
+                placeholder="Ej: Pagó de más el pedido del sábado"
+              />
+              <TouchableOpacity
+                style={s.checkRow}
+                onPress={() => setEnCaja(v => !v)}
+              >
+                <Text style={s.checkBox}>{enCaja ? '☑' : '☐'}</Text>
+                <Text style={s.checkTexto}>Registrar el dinero en caja</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  s.btnGuardar,
+                  { margin: 0 },
+                  savingSaldo && { opacity: 0.6 },
+                ]}
+                onPress={() => guardarSaldo(false)}
+                disabled={savingSaldo}
+              >
+                <Text style={s.btnGuardarText}>
+                  {savingSaldo ? 'Guardando...' : 'Dejar saldo a favor'}
+                </Text>
+              </TouchableOpacity>
+              {esAdmin && (saldoInfo?.saldo_favor || 0) > 0 && (
+                <TouchableOpacity
+                  style={s.btnSecundario}
+                  onPress={() => guardarSaldo(true)}
+                  disabled={savingSaldo}
+                >
+                  <Text style={s.btnSecundarioText}>
+                    Devolver dinero al cliente
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              <Text style={[s.label, { marginTop: 24 }]}>Movimientos</Text>
+              {saldoInfo?.movimientos?.length === 0 && (
+                <Text style={s.cardSub}>Sin movimientos todavía.</Text>
+              )}
+              {saldoInfo?.movimientos?.map(mv => (
+                <View key={mv.id} style={s.movRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.movTitulo}>
+                      {ETIQUETA_SALDO[mv.tipo] || mv.tipo}
+                      {mv.ventas_id ? ` #${mv.ventas_id}` : ''}
+                    </Text>
+                    <Text style={s.cardSub}>
+                      {fmtFecha(mv.fecha)}
+                      {mv.nota ? ` · ${mv.nota}` : ''}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      s.movMonto,
+                      {
+                        color:
+                          mv.tipo === 'deposito' || mv.tipo === 'reintegro'
+                            ? colors.verde
+                            : colors.primary,
+                      },
+                    ]}
+                  >
+                    {mv.tipo === 'deposito' || mv.tipo === 'reintegro'
+                      ? '+'
+                      : '−'}
+                    {fmt(mv.monto)}
+                  </Text>
+                </View>
+              ))}
+            </ScrollView>
+          </KeyboardView>
+        </View>
+      </Modal>
 
       <Modal
         visible={modal}
@@ -331,6 +522,47 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   btnGuardarText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  saldoTag: {
+    fontSize: 13,
+    color: colors.verde,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  saldoCard: {
+    backgroundColor: '#EAF8EE',
+    borderRadius: 10,
+    padding: 16,
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  saldoCardLabel: { fontSize: 13, color: colors.textoSuave, fontWeight: '600' },
+  saldoCardValor: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: colors.verde,
+    marginTop: 4,
+  },
+  checkRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 16 },
+  checkBox: { fontSize: 22, color: colors.primary, marginRight: 8 },
+  checkTexto: { fontSize: 14, color: colors.texto },
+  btnSecundario: {
+    marginTop: 10,
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  btnSecundarioText: { color: colors.primary, fontWeight: '700' },
+  movRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  movTitulo: { fontSize: 14, fontWeight: '600', color: colors.texto },
+  movMonto: { fontSize: 15, fontWeight: '700' },
 });
 
 export default ClientesScreen;
