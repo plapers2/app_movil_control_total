@@ -4,8 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { resetTo } from '../navigation/navigationRef';
 import { clearSession } from '../store/authStore';
 
-const API_URL = 'https://apicontroltotal.vidriospelaez.com.co/api/'; // Produccion
-// const API_URL = 'http://10.0.2.2:3000/api/'; // Desarrollo
+// const API_URL = 'https://apicontroltotal.vidriospelaez.com.co/api/'; // Produccion
+const API_URL = 'http://10.0.2.2:3000/api/'; // Desarrollo
 
 const client = axios.create({ baseURL: API_URL, timeout: 30000 });
 
@@ -35,11 +35,6 @@ client.interceptors.response.use(
   response => response,
   async error => {
     const { status, data } = error.response || {};
-
-    // Temporal: muestra qué endpoint devolvió el 401 (solo en desarrollo)
-    if (__DEV__ && status === 401) {
-      console.log('[401]', error.config?.url, data?.message);
-    }
 
     if (status === 403 && data?.code === 'DEBE_CAMBIAR_PASSWORD') {
       resetTo('CambiarPassword');
