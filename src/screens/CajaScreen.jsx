@@ -426,6 +426,11 @@ const CajaScreen = () => {
                 {item.ventas_id ? (
                   <Text style={s.cardMeta}>
                     Generado por la venta #{item.ventas_id}
+                    {item.clientes_id ? (
+                      <Text style={s.cardMeta}>
+                        Saldo a favor de un cliente (se corrige desde Clientes)
+                      </Text>
+                    ) : null}
                   </Text>
                 ) : null}
               </View>
@@ -439,7 +444,7 @@ const CajaScreen = () => {
                 {fmt(item.monto)}
               </Text>
             </View>
-            {rol === 'admin' && !item.ventas_id && (
+            {rol === 'admin' && !item.ventas_id && !item.clientes_id && (
               <View style={s.actions}>
                 <TouchableOpacity
                   onPress={() => abrirEditar(item)}

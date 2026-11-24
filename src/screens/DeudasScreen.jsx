@@ -88,22 +88,19 @@ const DeudasScreen = () => {
     return out;
   })();
 
-  const registrarAbono = async () => {
-    if (!(m > 0)) return Alert.alert('Error', 'Ingresa un monto válido.');
-    if (m > detalle.totalDeuda)
-      return Alert.alert(
-        'Error',
-        `El abono no puede ser mayor a la deuda total (${fmt(
-          detalle.totalDeuda,
-        )}).`,
-      );
+  const enviarAbono = async guardarExcedente => {
     try {
       setSaving(true);
       const res = await client.post(
         `/deudas/clientes/${detalle.cliente.id ?? 0}/pagos`,
-        { monto: m, nota, fecha: getFechaHoyLocal() },
+        {
+          monto: m,
+          nota,
+          fecha: getFechaHoyLocal(),
+          guardar_excedente: guardarExcedente,
+        },
       );
-      const aplicados = res.data.data.aplicados || [];
+      const { aplicados = [], excedente = 0 } = res.data.data;
       setModal(false);
       setDetalle(null);
       cargar();
@@ -116,7 +113,10 @@ const DeudasScreen = () => {
                 a.estado_pago === 'pagada' ? ' (saldada)' : ''
               }`,
           )
-          .join('\n'),
+          .join('\n') +
+          (excedente > 0
+            ? `\n\n💰 ${fmt(excedente)} quedó como saldo a favor.`
+            : ''),
       );
     } catch (err) {
       Alert.alert(
@@ -126,6 +126,31 @@ const DeudasScreen = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const registrarAbono = () => {
+    if (!(m > 0)) return Alert.alert('Error', 'Ingresa un monto válido.');
+    if (m > detalle.totalDeuda) {
+      if (!detalle.cliente.id)
+        return Alert.alert(
+          'Error',
+          `El abono no puede ser mayor a la deuda total (${fmt(
+            detalle.totalDeuda,
+          )}).`,
+        );
+      const sobra = Math.round((m - detalle.totalDeuda) * 100) / 100;
+      return Alert.alert(
+        'El abono supera la deuda',
+        `La deuda es ${fmt(detalle.totalDeuda)} y sobran ${fmt(
+          sobra,
+        )}. ¿Dejar ese valor como saldo a favor de ${detalle.cliente.nombre}?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Sí, dejar saldo', onPress: () => enviarAbono(true) },
+        ],
+      );
+    }
+    enviarAbono(false);
   };
 
   if (loading)
