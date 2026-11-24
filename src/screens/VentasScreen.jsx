@@ -26,6 +26,7 @@ import { fmt } from '../utils/formato';
 import { paramsFecha } from '../utils/query';
 import ModalAnular from '../components/ModalAnular';
 import { colors } from '../theme/colors';
+import KeyboardView from '../components/KeyboardView';
 
 const DOMICILIO_DEFECTO = '3000';
 
@@ -83,6 +84,7 @@ const VentasScreen = () => {
   const [domicilio, setDomicilio] = useState(DOMICILIO_DEFECTO);
   const [credito, setCredito] = useState(false);
   const [abonoInicial, setAbonoInicial] = useState('');
+  const [usarSaldo, setUsarSaldo] = useState(false);
   const [modalProductos, setModalProductos] = useState(false);
 
   // Evita que una respuesta lenta pise a una más reciente
@@ -202,7 +204,7 @@ const VentasScreen = () => {
         {
           productos_id: producto.id,
           nombre: producto.nombre,
-          cantidad: 1,
+          cantidad: '1',
           precio_unitario: aNumero(producto.precio_venta),
         },
       ];
@@ -227,6 +229,10 @@ const VentasScreen = () => {
   const valorDomicilio = canal === 'domicilio' ? aDinero(domicilio) || 0 : 0;
   const esConsumo = canal === 'consumo_propio';
   const total = esConsumo ? 0 : subtotalItems + valorDomicilio;
+  const saldoCliente = Number(clienteSeleccionado?.saldo_favor || 0);
+  const saldoAplicado =
+    usarSaldo && !esConsumo ? Math.min(saldoCliente, total) : 0;
+  const aPagar = total - saldoAplicado;
 
   const elegirCanal = val => {
     setCanal(val);
@@ -235,15 +241,40 @@ const VentasScreen = () => {
       setCredito(false);
       setAbonoInicial('');
       setClienteSeleccionado(null);
+      setUsarSaldo(false);
     }
+  };
+
+  // Al elegir un cliente con saldo a favor se avisa y se ofrece descontarlo
+  const elegirCliente = c => {
+    setClienteSeleccionado(c);
+    setUsarSaldo(false);
+    const saldo = Number(c?.saldo_favor || 0);
+    if (saldo > 0)
+      setTimeout(() => {
+        Alert.alert(
+          'Saldo a favor',
+          `${c.nombre} tiene ${fmt(
+            saldo,
+          )} a favor. ¿Descontarlo de esta venta?`,
+          [
+            { text: 'No por ahora', style: 'cancel' },
+            { text: 'Sí, descontar', onPress: () => setUsarSaldo(true) },
+          ],
+        );
+      }, 400);
   };
   const guardar = async () => {
     if (!items.length)
       return Alert.alert('Error', 'Agrega al menos un producto.');
-    if (items.some(i => !(aNumero(i.cantidad) > 0)))
+    if (
+      items.some(
+        i => !Number.isInteger(aNumero(i.cantidad)) || aNumero(i.cantidad) <= 0,
+      )
+    )
       return Alert.alert(
         'Error',
-        'Revisa las cantidades, deben ser mayores a 0.',
+        'Revisa las cantidades, deben ser números enteros mayores a 0.',
       );
     if (canal === 'domicilio' && !(aDinero(domicilio) >= 0))
       return Alert.alert('Error', 'El valor del domicilio no es válido.');
@@ -252,7 +283,7 @@ const VentasScreen = () => {
         'Error',
         'Para una venta a crédito debes asignar un cliente.',
       );
-    if (credito && abonoInicial && aNumero(abonoInicial) > total)
+    if (credito && abonoInicial && aNumero(abonoInicial) > aPagar)
       return Alert.alert(
         'Error',
         'El abono no puede ser mayor al total de la venta.',
@@ -265,6 +296,7 @@ const VentasScreen = () => {
         valor_domicilio: canal === 'domicilio' ? aDinero(domicilio) : 0,
         clientes_id: clienteSeleccionado?.id ?? null,
         credito,
+        saldo_usado: saldoAplicado,
         abono_inicial: credito ? aNumero(abonoInicial || 0) : undefined,
         items: items.map(({ productos_id, cantidad, precio_unitario }) => ({
           productos_id,
@@ -277,6 +309,8 @@ const VentasScreen = () => {
       setClienteSeleccionado(null);
       setCredito(false);
       setAbonoInicial('');
+      setUsarSaldo(false);
+      cargarCatalogos();
       setCanal('punto_venta');
       setDomicilio(DOMICILIO_DEFECTO);
       cargar();
@@ -373,10 +407,14 @@ const VentasScreen = () => {
   const guardarEdicion = async () => {
     if (!itemsEdit.length)
       return Alert.alert('Error', 'La venta debe tener al menos un producto.');
-    if (itemsEdit.some(i => !(aNumero(i.cantidad) > 0)))
+    if (
+      itemsEdit.some(
+        i => !Number.isInteger(aNumero(i.cantidad)) || aNumero(i.cantidad) <= 0,
+      )
+    )
       return Alert.alert(
         'Error',
-        'Revisa las cantidades, deben ser mayores a 0.',
+        'Revisa las cantidades, deben ser números enteros mayores a 0.',
       );
     if (canalEdit === 'domicilio' && !(aDinero(domicilioEdit) >= 0))
       return Alert.alert('Error', 'El valor del domicilio no es válido.');
@@ -479,7 +517,11 @@ const VentasScreen = () => {
           <TouchableOpacity style={s.card} onPress={() => verDetalle(item)}>
             <View style={s.cardRow}>
               <Text style={s.cardTitle}>Venta #{item.id}</Text>
-              <Text style={s.cardTotal}>{fmt(item.total)}</Text>
+              <Text style={s.cardTotal}>
+                {item.canal === 'consumo_propio'
+                  ? 'Consumo propio'
+                  : fmt(item.total)}
+              </Text>
             </View>
             <Text style={s.cardSub}>
               {fmtFecha(item.fecha)} ·{' '}
@@ -532,168 +574,197 @@ const VentasScreen = () => {
               <Text style={s.close}>✕</Text>
             </TouchableOpacity>
           </View>
-
-          <ScrollView>
-            <Text style={s.sectionLabel}>Productos</Text>
-            <TouchableOpacity
-              style={s.clienteSelector}
-              onPress={() => setModalProductos(true)}
-            >
-              <Text style={s.clientePlaceholder}>
-                Toca para buscar y agregar productos
-              </Text>
-              <Text style={s.arrow}>›</Text>
-            </TouchableOpacity>
-
-            {items.length > 0 && (
-              <>
-                <Text style={s.sectionLabel}>Resumen</Text>
-                {items.map(i => (
-                  <View key={i.productos_id} style={s.itemRow}>
-                    <Text style={s.itemNombre}>{i.nombre}</Text>
-                    <TextInput
-                      style={s.itemCantInput}
-                      value={String(i.cantidad)}
-                      onChangeText={v => cambiarCantidad(i.productos_id, v)}
-                      keyboardType="numeric"
-                    />
-                    <Text style={s.itemSubtotal}>
-                      {fmt(i.precio_unitario * (aNumero(i.cantidad) || 0))}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => quitarItem(i.productos_id)}
-                    >
-                      <Text style={s.removeBtn}>✕</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </>
-            )}
-
-            <Text style={s.sectionLabel}>Tipo de venta</Text>
-            <View style={[s.toggle, { flexWrap: 'wrap' }]}>
-              {CANALES.map(opt => (
-                <TouchableOpacity
-                  key={opt.val}
-                  style={[s.toggleBtn, canal === opt.val && s.toggleActive]}
-                  onPress={() => elegirCanal(opt.val)}
-                >
-                  <Text
-                    style={[
-                      s.toggleText,
-                      canal === opt.val && s.toggleTextActive,
-                    ]}
-                  >
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            {canal === 'domicilio' && (
-              <View style={s.field}>
-                <Text style={s.fieldLabel}>Valor del domicilio</Text>
-                <TextInput
-                  style={s.input}
-                  value={domicilio}
-                  onChangeText={setDomicilio}
-                  keyboardType="numeric"
-                  placeholder="3000"
-                />
-              </View>
-            )}
-
-            {esConsumo ? (
-              <Text style={[s.cardSub, { marginHorizontal: 16}]}>
-                Consumo propio: descuenta el stock, no registra dinero en caja
-                ni cuenta como venta en la rentabilidad.
-              </Text>
-            ) : (
-              <>
-                <Text style={s.sectionLabel}>
-                  Cliente{credito ? '' : ' (opcional)'}
+          <KeyboardView>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              <Text style={s.sectionLabel}>Productos</Text>
+              <TouchableOpacity
+                style={s.clienteSelector}
+                onPress={() => setModalProductos(true)}
+              >
+                <Text style={s.clientePlaceholder}>
+                  Toca para buscar y agregar productos
                 </Text>
-                <TouchableOpacity
-                  style={s.clienteSelector}
-                  onPress={() => setModalClientes(true)}
-                >
-                  <Text
-                    style={
-                      clienteSeleccionado
-                        ? s.clienteNombre
-                        : s.clientePlaceholder
-                    }
-                  >
-                    {clienteSeleccionado
-                      ? clienteSeleccionado.nombre
-                      : 'Sin cliente — toca para asignar'}
-                  </Text>
-                  {clienteSeleccionado && (
-                    <TouchableOpacity
-                      onPress={() => setClienteSeleccionado(null)}
-                    >
-                      <Text style={s.removeBtn}>✕</Text>
-                    </TouchableOpacity>
-                  )}
-                </TouchableOpacity>
+                <Text style={s.arrow}>›</Text>
+              </TouchableOpacity>
 
-                <Text style={s.sectionLabel}>Forma de pago</Text>
-                <View style={s.toggle}>
-                  {[
-                    { val: false, label: 'Pago completo' },
-                    { val: true, label: 'A crédito' },
-                  ].map(opt => (
-                    <TouchableOpacity
-                      key={String(opt.val)}
-                      style={[
-                        s.toggleBtn,
-                        credito === opt.val && s.toggleActive,
-                      ]}
-                      onPress={() => setCredito(opt.val)}
-                    >
-                      <Text
-                        style={[
-                          s.toggleText,
-                          credito === opt.val && s.toggleTextActive,
-                        ]}
+              {items.length > 0 && (
+                <>
+                  <Text style={s.sectionLabel}>Resumen</Text>
+                  {items.map(i => (
+                    <View key={i.productos_id} style={s.itemRow}>
+                      <Text style={s.itemNombre}>{i.nombre}</Text>
+                      <TextInput
+                        style={s.itemCantInput}
+                        value={String(i.cantidad)}
+                        onChangeText={v => cambiarCantidad(i.productos_id, v)}
+                        keyboardType="numeric"
+                      />
+                      <Text style={s.itemSubtotal}>
+                        {fmt(i.precio_unitario * (aNumero(i.cantidad) || 0))}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => quitarItem(i.productos_id)}
                       >
-                        {opt.label}
+                        <Text style={s.removeBtn}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </>
+              )}
+
+              <Text style={s.sectionLabel}>Tipo de venta</Text>
+              <View style={[s.toggle, { flexWrap: 'wrap' }]}>
+                {CANALES.map(opt => (
+                  <TouchableOpacity
+                    key={opt.val}
+                    style={[s.toggleBtn, canal === opt.val && s.toggleActive]}
+                    onPress={() => elegirCanal(opt.val)}
+                  >
+                    <Text
+                      style={[
+                        s.toggleText,
+                        canal === opt.val && s.toggleTextActive,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {canal === 'domicilio' && (
+                <View style={s.field}>
+                  <Text style={s.fieldLabel}>Valor del domicilio</Text>
+                  <TextInput
+                    style={s.input}
+                    value={domicilio}
+                    onChangeText={setDomicilio}
+                    keyboardType="numeric"
+                    placeholder="3000"
+                  />
+                </View>
+              )}
+
+              {esConsumo ? (
+                <Text style={[s.cardSub, { marginHorizontal: 16 }]}>
+                  Consumo propio: descuenta el stock, no registra dinero en caja
+                  ni cuenta como venta en la rentabilidad.
+                </Text>
+              ) : (
+                <>
+                  <Text style={s.sectionLabel}>
+                    Cliente{credito ? '' : ' (opcional)'}
+                  </Text>
+                  <TouchableOpacity
+                    style={s.clienteSelector}
+                    onPress={() => setModalClientes(true)}
+                  >
+                    <Text
+                      style={
+                        clienteSeleccionado
+                          ? s.clienteNombre
+                          : s.clientePlaceholder
+                      }
+                    >
+                      {clienteSeleccionado
+                        ? clienteSeleccionado.nombre
+                        : 'Sin cliente — toca para asignar'}
+                    </Text>
+                    {clienteSeleccionado && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          setClienteSeleccionado(null);
+                          setUsarSaldo(false);
+                        }}
+                      >
+                        <Text style={s.removeBtn}>✕</Text>
+                      </TouchableOpacity>
+                    )}
+                  </TouchableOpacity>
+
+                  {saldoCliente > 0 && (
+                    <TouchableOpacity
+                      style={s.saldoBox}
+                      onPress={() => setUsarSaldo(v => !v)}
+                    >
+                      <Text style={s.saldoTitulo}>
+                        💰 {clienteSeleccionado.nombre} tiene{' '}
+                        {fmt(saldoCliente)} a favor
+                      </Text>
+                      <Text style={s.saldoAccion}>
+                        {usarSaldo
+                          ? `✓ Descontando ${fmt(
+                              saldoAplicado,
+                            )} (toca para quitar)`
+                          : 'Toca para descontarlo de esta venta'}
                       </Text>
                     </TouchableOpacity>
-                  ))}
-                </View>
+                  )}
 
-                {credito && (
-                  <View style={s.field}>
-                    <Text style={s.fieldLabel}>
-                      Abono inicial
-                      {aDinero(abonoInicial) > 0 ? '' : ' (opcional)'}
-                    </Text>
-                    <TextInput
-                      style={s.input}
-                      value={abonoInicial}
-                      onChangeText={setAbonoInicial}
-                      keyboardType="numeric"
-                      placeholder="0"
-                    />
+                  <Text style={s.sectionLabel}>Forma de pago</Text>
+                  <View style={s.toggle}>
+                    {[
+                      { val: false, label: 'Pago completo' },
+                      { val: true, label: 'A crédito' },
+                    ].map(opt => (
+                      <TouchableOpacity
+                        key={String(opt.val)}
+                        style={[
+                          s.toggleBtn,
+                          credito === opt.val && s.toggleActive,
+                        ]}
+                        onPress={() => setCredito(opt.val)}
+                      >
+                        <Text
+                          style={[
+                            s.toggleText,
+                            credito === opt.val && s.toggleTextActive,
+                          ]}
+                        >
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
-                )}
-              </>
-            )}
 
-            {items.length > 0 && valorDomicilio > 0 && (
-              <Text style={s.cardSub}>
-                Productos {fmt(subtotalItems)} + domicilio {fmt(valorDomicilio)}
-              </Text>
-            )}
-            {items.length > 0 && (
-              <View style={s.totalRow}>
-                <Text style={s.totalLabel}>Total</Text>
-                <Text style={s.totalValue}>
-                  {esConsumo ? 'Sin costo' : fmt(total)}
+                  {credito && (
+                    <View style={s.field}>
+                      <Text style={s.fieldLabel}>
+                        Abono inicial
+                        {aDinero(abonoInicial) > 0 ? '' : ' (opcional)'}
+                      </Text>
+                      <TextInput
+                        style={s.input}
+                        value={abonoInicial}
+                        onChangeText={setAbonoInicial}
+                        keyboardType="numeric"
+                        placeholder="0"
+                      />
+                    </View>
+                  )}
+                </>
+              )}
+
+              {items.length > 0 && valorDomicilio > 0 && (
+                <Text style={s.cardSub}>
+                  Productos {fmt(subtotalItems)} + domicilio{' '}
+                  {fmt(valorDomicilio)}
                 </Text>
-              </View>
-            )}
-          </ScrollView>
+              )}
+              {items.length > 0 && saldoAplicado > 0 && (
+                <Text style={s.cardSub}>
+                  Saldo a favor −{fmt(saldoAplicado)} · A pagar {fmt(aPagar)}
+                </Text>
+              )}
+              {items.length > 0 && (
+                <View style={s.totalRow}>
+                  <Text style={s.totalLabel}>Total</Text>
+                  <Text style={s.totalValue}>
+                    {esConsumo ? 'Sin costo' : fmt(total)}
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+          </KeyboardView>
 
           <TouchableOpacity
             style={[s.btnGuardar, saving && { opacity: 0.6 }]}
@@ -705,7 +776,7 @@ const VentasScreen = () => {
                 ? 'Guardando...'
                 : esConsumo
                 ? 'Registrar consumo propio'
-                : `Registrar venta · ${fmt(total)}`}
+                : `Registrar venta · ${fmt(aPagar)}`}
             </Text>
           </TouchableOpacity>
         </View>
@@ -816,6 +887,21 @@ const VentasScreen = () => {
                   {fmt(ventaDetalle.total)}
                 </Text>
               </View>
+
+              {ventaDetalle.pagos_venta?.some(
+                p => p.nota === 'Saldo a favor',
+              ) && (
+                <View style={s.detalleSeccion}>
+                  <Text style={s.detalleLabel}>Pagado con saldo a favor</Text>
+                  <Text style={s.detalleValor}>
+                    {fmt(
+                      ventaDetalle.pagos_venta
+                        .filter(p => p.nota === 'Saldo a favor')
+                        .reduce((s, p) => s + Number(p.monto), 0),
+                    )}
+                  </Text>
+                </View>
+              )}
             </ScrollView>
           )}
         </View>
@@ -876,7 +962,7 @@ const VentasScreen = () => {
               <TouchableOpacity
                 style={s.prodRow}
                 onPress={() => {
-                  setClienteSeleccionado(item);
+                  elegirCliente(item);
                   setModalClientes(false);
                   setBusquedaCliente('');
                 }}
@@ -906,94 +992,94 @@ const VentasScreen = () => {
               <Text style={s.close}>✕</Text>
             </TouchableOpacity>
           </View>
-
-          <ScrollView>
-            {ventaEditando?.clientes && (
-              <View style={s.field}>
-                <Text style={s.fieldLabel}>Cliente (no editable)</Text>
-                <Text style={s.detalleValor}>
-                  {ventaEditando.clientes.nombre}
-                </Text>
-              </View>
-            )}
-            {canalEdit !== 'consumo_propio' && (
-              <>
-                <Text style={s.sectionLabel}>Canal</Text>
-                <View style={s.toggle}>
-                  {CANALES_EDIT.map(opt => (
-                    <TouchableOpacity
-                      key={opt.val}
-                      style={[
-                        s.toggleBtn,
-                        canalEdit === opt.val && s.toggleActive,
-                      ]}
-                      onPress={() => elegirCanalEdit(opt.val)}
-                    >
-                      <Text
-                        style={[
-                          s.toggleText,
-                          canalEdit === opt.val && s.toggleTextActive,
-                        ]}
-                      >
-                        {opt.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+          <KeyboardView>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              {ventaEditando?.clientes && (
+                <View style={s.field}>
+                  <Text style={s.fieldLabel}>Cliente (no editable)</Text>
+                  <Text style={s.detalleValor}>
+                    {ventaEditando.clientes.nombre}
+                  </Text>
                 </View>
-              </>
-            )}
+              )}
+              {canalEdit !== 'consumo_propio' && (
+                <>
+                  <Text style={s.sectionLabel}>Canal</Text>
+                  <View style={s.toggle}>
+                    {CANALES_EDIT.map(opt => (
+                      <TouchableOpacity
+                        key={opt.val}
+                        style={[
+                          s.toggleBtn,
+                          canalEdit === opt.val && s.toggleActive,
+                        ]}
+                        onPress={() => elegirCanalEdit(opt.val)}
+                      >
+                        <Text
+                          style={[
+                            s.toggleText,
+                            canalEdit === opt.val && s.toggleTextActive,
+                          ]}
+                        >
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
 
-            {canalEdit === 'domicilio' && (
-              <View style={s.field}>
-                <Text style={s.fieldLabel}>Valor del domicilio</Text>
-                <TextInput
-                  style={s.input}
-                  value={domicilioEdit}
-                  onChangeText={setDomicilioEdit}
-                  keyboardType="numeric"
-                  placeholder="3000"
-                />
-              </View>
-            )}
+              {canalEdit === 'domicilio' && (
+                <View style={s.field}>
+                  <Text style={s.fieldLabel}>Valor del domicilio</Text>
+                  <TextInput
+                    style={s.input}
+                    value={domicilioEdit}
+                    onChangeText={setDomicilioEdit}
+                    keyboardType="numeric"
+                    placeholder="3000"
+                  />
+                </View>
+              )}
 
-            <Text style={s.sectionLabel}>Agregar producto</Text>
-            <TouchableOpacity
-              style={s.clienteSelector}
-              onPress={() => setModalProductosEdit(true)}
-            >
-              <Text style={s.clientePlaceholder}>
-                Toca para buscar y agregar productos
-              </Text>
-              <Text style={s.arrow}>›</Text>
-            </TouchableOpacity>
-
-            <Text style={s.sectionLabel}>Productos de la venta</Text>
-            {itemsEdit.map(i => (
-              <View key={i.productos_id} style={s.itemRow}>
-                <Text style={s.itemNombre}>{i.nombre}</Text>
-                <TextInput
-                  style={s.itemCantInput}
-                  value={String(i.cantidad)}
-                  onChangeText={v => cambiarCantidadEdit(i.productos_id, v)}
-                  keyboardType="numeric"
-                />
-                <Text style={s.itemSubtotal}>
-                  {fmt(i.precio_unitario * (aNumero(i.cantidad) || 0))}
+              <Text style={s.sectionLabel}>Agregar producto</Text>
+              <TouchableOpacity
+                style={s.clienteSelector}
+                onPress={() => setModalProductosEdit(true)}
+              >
+                <Text style={s.clientePlaceholder}>
+                  Toca para buscar y agregar productos
                 </Text>
-                <TouchableOpacity
-                  onPress={() => quitarItemEdit(i.productos_id)}
-                >
-                  <Text style={s.removeBtn}>✕</Text>
-                </TouchableOpacity>
+                <Text style={s.arrow}>›</Text>
+              </TouchableOpacity>
+
+              <Text style={s.sectionLabel}>Productos de la venta</Text>
+              {itemsEdit.map(i => (
+                <View key={i.productos_id} style={s.itemRow}>
+                  <Text style={s.itemNombre}>{i.nombre}</Text>
+                  <TextInput
+                    style={s.itemCantInput}
+                    value={String(i.cantidad)}
+                    onChangeText={v => cambiarCantidadEdit(i.productos_id, v)}
+                    keyboardType="numeric"
+                  />
+                  <Text style={s.itemSubtotal}>
+                    {fmt(i.precio_unitario * (aNumero(i.cantidad) || 0))}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => quitarItemEdit(i.productos_id)}
+                  >
+                    <Text style={s.removeBtn}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+
+              <View style={s.totalRow}>
+                <Text style={s.totalLabel}>Total</Text>
+                <Text style={s.totalValue}>{fmt(totalEdit)}</Text>
               </View>
-            ))}
-
-            <View style={s.totalRow}>
-              <Text style={s.totalLabel}>Total</Text>
-              <Text style={s.totalValue}>{fmt(totalEdit)}</Text>
-            </View>
-          </ScrollView>
-
+            </ScrollView>
+          </KeyboardView>
           <TouchableOpacity
             style={[s.btnGuardar, savingEdit && { opacity: 0.6 }]}
             onPress={guardarEdicion}
@@ -1255,6 +1341,15 @@ const s = StyleSheet.create({
     paddingTop: 8,
   },
   editBtn: { marginRight: 4 },
+  saldoBox: {
+    backgroundColor: '#EAF8EE',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 12,
+    borderRadius: 8,
+  },
+  saldoTitulo: { fontSize: 14, fontWeight: '700', color: colors.texto },
+  saldoAccion: { fontSize: 12, color: colors.verde, marginTop: 2 },
 });
 
 export default VentasScreen;
