@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { CommonActions } from '@react-navigation/native';
 import client from '../api/client';
@@ -63,47 +64,49 @@ const CambiarPasswordScreen = ({ navigation }) => {
   };
 
   return (
-    <View style={s.container}>
-      <Text style={s.title}>Cambia tu contraseña</Text>
-      <Text style={s.subtitle}>
-        Por seguridad, debes reemplazar la contraseña temporal antes de
-        continuar.
-      </Text>
-      <TextInput
-        style={s.input}
-        placeholder="Contraseña actual (temporal)"
-        value={actual}
-        onChangeText={setActual}
-        secureTextEntry
-        autoCapitalize="none"
-      />
-      <TextInput
-        style={s.input}
-        placeholder="Nueva contraseña (mín. 8 caracteres)"
-        value={nueva}
-        onChangeText={setNueva}
-        secureTextEntry
-        autoCapitalize="none"
-      />
-      <TextInput
-        style={s.input}
-        placeholder="Confirmar nueva contraseña"
-        value={confirmar}
-        onChangeText={setConfirmar}
-        secureTextEntry
-        autoCapitalize="none"
-      />
-      <TouchableOpacity
-        style={[s.btn, loading && { opacity: 0.6 }]}
-        onPress={handleGuardar}
-        disabled={loading}
-      >
-        <Text style={s.btnText}>{loading ? 'Guardando...' : 'Guardar'}</Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={handleSalir} style={s.salir}>
-        <Text style={s.salirText}>Salir</Text>
-      </TouchableOpacity>
-    </View>
+    <KeyboardAvoidingView style={s.container}>
+      <View style={s.container}>
+        <Text style={s.title}>Cambia tu contraseña</Text>
+        <Text style={s.subtitle}>
+          Por seguridad, debes reemplazar la contraseña temporal antes de
+          continuar.
+        </Text>
+        <TextInput
+          style={s.input}
+          placeholder="Contraseña actual (temporal)"
+          value={actual}
+          onChangeText={setActual}
+          secureTextEntry
+          autoCapitalize="none"
+        />
+        <TextInput
+          style={s.input}
+          placeholder="Nueva contraseña (mín. 8 caracteres)"
+          value={nueva}
+          onChangeText={setNueva}
+          secureTextEntry
+          autoCapitalize="none"
+        />
+        <TextInput
+          style={s.input}
+          placeholder="Confirmar nueva contraseña"
+          value={confirmar}
+          onChangeText={setConfirmar}
+          secureTextEntry
+          autoCapitalize="none"
+        />
+        <TouchableOpacity
+          style={[s.btn, loading && { opacity: 0.6 }]}
+          onPress={handleGuardar}
+          disabled={loading}
+        >
+          <Text style={s.btnText}>{loading ? 'Guardando...' : 'Guardar'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={handleSalir} style={s.salir}>
+          <Text style={s.salirText}>Salir</Text>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
   );
 };
 

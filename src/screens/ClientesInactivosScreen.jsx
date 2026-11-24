@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import client from '../api/client';
 import { fmtFecha as fmtFechaBase } from '../utils/date';
+import { avisarError } from '../utils/errores';
 
 const fmtFecha = d => (d ? fmtFechaBase(d) : null);
 
@@ -24,8 +25,8 @@ const ClientesInactivosScreen = () => {
     try {
       const res = await client.get('/clientes/inactivos?dias=15');
       setClientes(res.data.data);
-    } catch {
-      Alert.alert('Error', 'No se pudieron cargar los clientes inactivos.');
+    } catch (err) {
+      avisarError(err, 'No se pudieron cargar los clientes inactivos.');
     }
     setLoading(false);
   }, []);
@@ -51,8 +52,11 @@ const ClientesInactivosScreen = () => {
             : c,
         ),
       );
-    } catch {
-      Alert.alert('Error', 'No se pudo actualizar el aviso.');
+    } catch (err) {
+      Alert.alert(
+        'Error',
+        err.response?.data?.message || 'No se pudo actualizar el aviso.',
+      );
     } finally {
       setActualizandoId(null);
     }
@@ -99,7 +103,9 @@ const ClientesInactivosScreen = () => {
               <View
                 style={[
                   s.badge,
-                  item.aviso_inactivo_enviado ? s.badgeEnviado : s.badgePendiente,
+                  item.aviso_inactivo_enviado
+                    ? s.badgeEnviado
+                    : s.badgePendiente,
                 ]}
               >
                 <Text style={s.badgeText}>
@@ -127,7 +133,9 @@ const ClientesInactivosScreen = () => {
             <TouchableOpacity
               style={[
                 s.btnAviso,
-                item.aviso_inactivo_enviado ? s.btnAvisoDesmarcar : s.btnAvisoMarcar,
+                item.aviso_inactivo_enviado
+                  ? s.btnAvisoDesmarcar
+                  : s.btnAvisoMarcar,
               ]}
               onPress={() => toggleAviso(item)}
               disabled={actualizandoId === item.id}
@@ -175,7 +183,12 @@ const s = StyleSheet.create({
   },
   resumenValor: { fontSize: 26, fontWeight: 'bold', color: '#E63946' },
   resumenLabel: { fontSize: 12, color: '#888', marginTop: 2 },
-  empty: { textAlign: 'center', color: '#aaa', marginTop: 40, paddingHorizontal: 30 },
+  empty: {
+    textAlign: 'center',
+    color: '#aaa',
+    marginTop: 40,
+    paddingHorizontal: 30,
+  },
   card: {
     backgroundColor: '#fff',
     borderRadius: 10,
@@ -188,7 +201,13 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
-  cardTitle: { fontWeight: '700', fontSize: 15, color: '#333', flex: 1, marginRight: 8 },
+  cardTitle: {
+    fontWeight: '700',
+    fontSize: 15,
+    color: '#333',
+    flex: 1,
+    marginRight: 8,
+  },
   cardSub: { color: '#888', fontSize: 12, marginTop: 4 },
   cardDias: {
     color: '#E63946',

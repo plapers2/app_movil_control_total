@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import client from '../api/client';
 import CredencialesModal from '../components/CredencialesModal';
+import KeyboardView from '../components/KeyboardView';
 
 const NuevaEmpresaScreen = ({ navigation }) => {
   const [nombre, setNombre] = useState('');
@@ -103,101 +104,101 @@ const NuevaEmpresaScreen = ({ navigation }) => {
         <Text style={s.title}>Nueva empresa</Text>
         <View style={{ width: 60 }} />
       </View>
+      <KeyboardView>
+        <ScrollView
+          contentContainerStyle={{ padding: 16 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Text style={s.label}>Empresa</Text>
+          <TextInput
+            style={s.input}
+            placeholder="Nombre de la empresa"
+            value={nombre}
+            onChangeText={setNombre}
+          />
+          <TextInput
+            style={s.input}
+            placeholder="Descripción (opcional)"
+            value={descripcion}
+            onChangeText={setDescripcion}
+          />
 
-      <ScrollView
-        contentContainerStyle={{ padding: 16 }}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Text style={s.label}>Empresa</Text>
-        <TextInput
-          style={s.input}
-          placeholder="Nombre de la empresa"
-          value={nombre}
-          onChangeText={setNombre}
-        />
-        <TextInput
-          style={s.input}
-          placeholder="Descripción (opcional)"
-          value={descripcion}
-          onChangeText={setDescripcion}
-        />
-
-        <Text style={s.label}>Administrador</Text>
-        <View style={s.chips}>
-          {[
-            { key: 'nuevo', label: 'Admin nuevo' },
-            { key: 'existente', label: 'Admin existente' },
-          ].map(m => (
-            <TouchableOpacity
-              key={m.key}
-              style={[s.chip, modo === m.key && s.chipOn]}
-              onPress={() => setModo(m.key)}
-            >
-              <Text style={[s.chipText, modo === m.key && s.chipTextOn]}>
-                {m.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {modo === 'nuevo' ? (
-          <>
-            <TextInput
-              style={s.input}
-              placeholder="Nombre del admin"
-              value={adminNombre}
-              onChangeText={setAdminNombre}
-            />
-            <TextInput
-              style={s.input}
-              placeholder="Email del admin"
-              value={adminEmail}
-              onChangeText={setAdminEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-            <Text style={s.hint}>
-              Se generará una contraseña temporal que verás una sola vez. Si se
-              pierde, podrás generar otra desde la lista de empresas. El admin
-              deberá cambiarla en su primer ingreso.
-            </Text>
-          </>
-        ) : (
-          <>
-            <TextInput
-              style={s.input}
-              placeholder="Buscar por nombre o email"
-              value={busqueda}
-              onChangeText={setBusqueda}
-              autoCapitalize="none"
-            />
-            {filtrados.map(u => (
+          <Text style={s.label}>Administrador</Text>
+          <View style={s.chips}>
+            {[
+              { key: 'nuevo', label: 'Admin nuevo' },
+              { key: 'existente', label: 'Admin existente' },
+            ].map(m => (
               <TouchableOpacity
-                key={u.id}
-                style={[s.user, seleccionado?.id === u.id && s.userOn]}
-                onPress={() => setSeleccionado(u)}
+                key={m.key}
+                style={[s.chip, modo === m.key && s.chipOn]}
+                onPress={() => setModo(m.key)}
               >
-                <Text style={s.userName}>{u.nombre}</Text>
-                <Text style={s.userEmail}>{u.email}</Text>
+                <Text style={[s.chipText, modo === m.key && s.chipTextOn]}>
+                  {m.label}
+                </Text>
               </TouchableOpacity>
             ))}
-            {usuarios.length > 8 && (
-              <Text style={s.hint}>Escribe para filtrar la lista.</Text>
-            )}
-          </>
-        )}
+          </View>
 
-        <TouchableOpacity
-          style={[s.btn, loading && { opacity: 0.6 }]}
-          onPress={handleCrear}
-          disabled={loading}
-        >
-          <Text style={s.btnText}>
-            {loading ? 'Creando...' : 'Crear empresa'}
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
+          {modo === 'nuevo' ? (
+            <>
+              <TextInput
+                style={s.input}
+                placeholder="Nombre del admin"
+                value={adminNombre}
+                onChangeText={setAdminNombre}
+              />
+              <TextInput
+                style={s.input}
+                placeholder="Email del admin"
+                value={adminEmail}
+                onChangeText={setAdminEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+              <Text style={s.hint}>
+                Se generará una contraseña temporal que verás una sola vez. Si
+                se pierde, podrás generar otra desde la lista de empresas. El
+                admin deberá cambiarla en su primer ingreso.
+              </Text>
+            </>
+          ) : (
+            <>
+              <TextInput
+                style={s.input}
+                placeholder="Buscar por nombre o email"
+                value={busqueda}
+                onChangeText={setBusqueda}
+                autoCapitalize="none"
+              />
+              {filtrados.map(u => (
+                <TouchableOpacity
+                  key={u.id}
+                  style={[s.user, seleccionado?.id === u.id && s.userOn]}
+                  onPress={() => setSeleccionado(u)}
+                >
+                  <Text style={s.userName}>{u.nombre}</Text>
+                  <Text style={s.userEmail}>{u.email}</Text>
+                </TouchableOpacity>
+              ))}
+              {usuarios.length > 8 && (
+                <Text style={s.hint}>Escribe para filtrar la lista.</Text>
+              )}
+            </>
+          )}
 
+          <TouchableOpacity
+            style={[s.btn, loading && { opacity: 0.6 }]}
+            onPress={handleCrear}
+            disabled={loading}
+          >
+            <Text style={s.btnText}>
+              {loading ? 'Creando...' : 'Crear empresa'}
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardView>
       <CredencialesModal
         visible={!!credenciales}
         titulo="Empresa creada"

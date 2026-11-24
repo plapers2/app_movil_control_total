@@ -132,10 +132,7 @@ const InsumosScreen = () => {
             await client.delete(`/insumos/${item.id}`);
             cargar();
           } catch (err) {
-            Alert.alert(
-              'Error',
-              err.response?.data?.message || 'No se pudo desactivar el insumo.',
-            );
+            avisarError(err, 'No se pudo cargar el detalle.');
           }
         },
       },
