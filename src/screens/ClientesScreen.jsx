@@ -14,6 +14,7 @@ import {
 import client from '../api/client';
 import { coincide } from '../utils/texto';
 import { avisarError } from '../utils/errores';
+import FormScroll from '../components/FormScroll';
 
 const ClientesScreen = () => {
   const [clientes, setClientes] = useState([]);
@@ -63,7 +64,8 @@ const ClientesScreen = () => {
   };
 
   const guardar = async () => {
-    if (!form.nombre) return Alert.alert('Error', 'El nombre es requerido.');
+    if (!form.nombre.trim())
+      return Alert.alert('Error', 'El nombre es requerido.');
     try {
       setSaving(true);
       if (editando) await client.put(`/clientes/${editando.id}`, form);
@@ -192,31 +194,33 @@ const ClientesScreen = () => {
               <Text style={s.close}>✕</Text>
             </TouchableOpacity>
           </View>
-          {[
-            { key: 'nombre', label: 'Nombre *', keyboard: 'default' },
-            { key: 'telefono', label: 'Teléfono', keyboard: 'phone-pad' },
-            { key: 'direccion', label: 'Dirección', keyboard: 'default' },
-            { key: 'notas', label: 'Notas', keyboard: 'default' },
-          ].map(({ key, label, keyboard }) => (
-            <View key={key} style={s.field}>
-              <Text style={s.label}>{label}</Text>
-              <TextInput
-                style={s.input}
-                value={form[key]}
-                onChangeText={v => setForm(p => ({ ...p, [key]: v }))}
-                keyboardType={keyboard}
-              />
-            </View>
-          ))}
-          <TouchableOpacity
-            style={[s.btnGuardar, saving && { opacity: 0.6 }]}
-            onPress={guardar}
-            disabled={saving}
-          >
-            <Text style={s.btnGuardarText}>
-              {saving ? 'Guardando...' : 'Guardar'}
-            </Text>
-          </TouchableOpacity>
+          <FormScroll>
+            {[
+              { key: 'nombre', label: 'Nombre *', keyboard: 'default' },
+              { key: 'telefono', label: 'Teléfono', keyboard: 'phone-pad' },
+              { key: 'direccion', label: 'Dirección', keyboard: 'default' },
+              { key: 'notas', label: 'Notas', keyboard: 'default' },
+            ].map(({ key, label, keyboard }) => (
+              <View key={key} style={s.field}>
+                <Text style={s.label}>{label}</Text>
+                <TextInput
+                  style={s.input}
+                  value={form[key]}
+                  onChangeText={v => setForm(p => ({ ...p, [key]: v }))}
+                  keyboardType={keyboard}
+                />
+              </View>
+            ))}
+            <TouchableOpacity
+              style={[s.btnGuardar, saving && { opacity: 0.6 }]}
+              onPress={guardar}
+              disabled={saving}
+            >
+              <Text style={s.btnGuardarText}>
+                {saving ? 'Guardando...' : 'Guardar'}
+              </Text>
+            </TouchableOpacity>
+          </FormScroll>
         </View>
       </Modal>
     </View>

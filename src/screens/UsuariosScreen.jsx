@@ -12,6 +12,9 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import client from '../api/client';
+import FormScroll from '../components/FormScroll';
+import { avisarError } from '../utils/errores';
+import { validarEmail, validarPassword } from '../utils/validar';
 
 const UsuariosScreen = ({ navigation }) => {
   const [miembros, setMiembros] = useState([]);
@@ -29,8 +32,8 @@ const UsuariosScreen = ({ navigation }) => {
     try {
       const res = await client.get('/auth/usuarios');
       setMiembros(res.data.data);
-    } catch {
-      Alert.alert('Error', 'No se pudieron cargar los usuarios.');
+    } catch (err) {
+      avisarError(err, 'No se pudieron cargar los usuarios.');
     }
     setLoading(false);
   }, []);
@@ -42,11 +45,22 @@ const UsuariosScreen = ({ navigation }) => {
   );
 
   const guardar = async () => {
-    if (!form.nombre || !form.email || !form.password)
+    if (!form.nombre.trim() || !form.email.trim() || !form.password)
       return Alert.alert('Error', 'Todos los campos son requeridos.');
+    if (!validarEmail(form.email))
+      return Alert.alert('Error', 'El email no es válido.');
+    if (!validarPassword(form.password))
+      return Alert.alert(
+        'Error',
+        'La contraseña debe tener al menos 8 caracteres.',
+      );
     try {
       setSaving(true);
-      await client.post('/auth/usuarios', form);
+      await client.post('/auth/usuarios', {
+        ...form,
+        nombre: form.nombre.trim(),
+        email: form.email.trim().toLowerCase(),
+      });
       setModal(false);
       setForm({ nombre: '', email: '', password: '', rol: 'empleado' });
       cargar();
@@ -73,8 +87,12 @@ const UsuariosScreen = ({ navigation }) => {
             try {
               await client.delete(`/auth/usuarios/${miembro.id}`);
               cargar();
-            } catch {
-              Alert.alert('Error', 'No se pudo desactivar el usuario.');
+            } catch (err) {
+              Alert.alert(
+                'Error',
+                err.response?.data?.message ||
+                  'No se pudo desactivar el usuario.',
+              );
             }
           },
         },
@@ -141,64 +159,65 @@ const UsuariosScreen = ({ navigation }) => {
               <Text style={s.close}>✕</Text>
             </TouchableOpacity>
           </View>
+          <FormScroll>
+            <View style={s.field}>
+              <Text style={s.label}>Nombre *</Text>
+              <TextInput
+                style={s.input}
+                value={form.nombre}
+                onChangeText={v => setForm(p => ({ ...p, nombre: v }))}
+                placeholder="Nombre completo"
+              />
+            </View>
+            <View style={s.field}>
+              <Text style={s.label}>Email *</Text>
+              <TextInput
+                style={s.input}
+                value={form.email}
+                onChangeText={v => setForm(p => ({ ...p, email: v }))}
+                placeholder="correo@ejemplo.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+            <View style={s.field}>
+              <Text style={s.label}>Contraseña *</Text>
+              <TextInput
+                style={s.input}
+                value={form.password}
+                onChangeText={v => setForm(p => ({ ...p, password: v }))}
+                placeholder="Mínimo 8 caracteres"
+                secureTextEntry
+              />
+            </View>
 
-          <View style={s.field}>
-            <Text style={s.label}>Nombre *</Text>
-            <TextInput
-              style={s.input}
-              value={form.nombre}
-              onChangeText={v => setForm(p => ({ ...p, nombre: v }))}
-              placeholder="Nombre completo"
-            />
-          </View>
-          <View style={s.field}>
-            <Text style={s.label}>Email *</Text>
-            <TextInput
-              style={s.input}
-              value={form.email}
-              onChangeText={v => setForm(p => ({ ...p, email: v }))}
-              placeholder="correo@ejemplo.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
-          <View style={s.field}>
-            <Text style={s.label}>Contraseña *</Text>
-            <TextInput
-              style={s.input}
-              value={form.password}
-              onChangeText={v => setForm(p => ({ ...p, password: v }))}
-              placeholder="Mínimo 6 caracteres"
-              secureTextEntry
-            />
-          </View>
-
-          <Text style={s.label}>Rol</Text>
-          <View style={s.toggle}>
-            {['empleado', 'admin'].map(r => (
-              <TouchableOpacity
-                key={r}
-                style={[s.toggleBtn, form.rol === r && s.toggleActive]}
-                onPress={() => setForm(p => ({ ...p, rol: r }))}
-              >
-                <Text
-                  style={[s.toggleText, form.rol === r && s.toggleTextActive]}
+            <Text style={s.label}>Rol</Text>
+            <View style={s.toggle}>
+              {['empleado', 'admin'].map(r => (
+                <TouchableOpacity
+                  key={r}
+                  style={[s.toggleBtn, form.rol === r && s.toggleActive]}
+                  onPress={() => setForm(p => ({ ...p, rol: r }))}
                 >
-                  {r.charAt(0).toUpperCase() + r.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+                  <Text
+                    style={[s.toggleText, form.rol === r && s.toggleTextActive]}
+                  >
+                    {r.charAt(0).toUpperCase() + r.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
-          <TouchableOpacity
-            style={[s.btnGuardar, saving && { opacity: 0.6 }]}
-            onPress={guardar}
-            disabled={saving}
-          >
-            <Text style={s.btnGuardarText}>
-              {saving ? 'Guardando...' : 'Crear usuario'}
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.btnGuardar, saving && { opacity: 0.6 }]}
+              onPress={guardar}
+              disabled={saving}
+            >
+              <Text style={s.btnGuardarText}>
+                {saving ? 'Guardando...' : 'Crear usuario'}
+              </Text>
+            </TouchableOpacity>
+          </FormScroll>
         </View>
       </Modal>
     </View>

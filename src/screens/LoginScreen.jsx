@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
+  KeyboardAvoidingView,
+  Platform,
   View,
   Text,
   TextInput,
@@ -7,6 +9,7 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
+import { validarEmail } from '../utils/validar';
 import client from '../api/client';
 import { saveToken, saveUsuario, clearSession } from '../store/authStore';
 
@@ -14,14 +17,23 @@ const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const passRef = useRef(null);
 
   const handleLogin = async () => {
+    const emailLimpio = email.trim().toLowerCase();
+    if (!emailLimpio || !password)
+      return Alert.alert('Error', 'Completa todos los campos.');
+    if (!validarEmail(emailLimpio))
+      return Alert.alert('Error', 'El email no es válido.');
     if (!email || !password)
       return Alert.alert('Error', 'Completa todos los campos.');
     try {
       setLoading(true);
       await clearSession();
-      const res = await client.post('/auth/login', { email, password });
+      const res = await client.post('/auth/login', {
+        email: emailLimpio,
+        password,
+      });
       const { token, usuario, empresas } = res.data.data;
       await saveToken(token);
       await saveUsuario(usuario);
@@ -43,30 +55,37 @@ const LoginScreen = ({ navigation }) => {
     }
   };
 
-  return (
-    <View style={s.container}>
-      <Text style={s.title}>Mi Arepita Querida</Text>
-      <Text style={s.subtitle}>Control Total</Text>
-      <TextInput
-        style={s.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
-      <TextInput
-        style={s.input}
-        placeholder="Contraseña"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      <TouchableOpacity style={s.btn} onPress={handleLogin} disabled={loading}>
-        <Text style={s.btnText}>{loading ? 'Ingresando...' : 'Ingresar'}</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  <KeyboardAvoidingView
+    style={s.container}
+    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+  >
+    <Text style={s.title}>Mi Arepita Querida</Text>
+    <Text style={s.subtitle}>Control Total</Text>
+    <TextInput
+      style={s.input}
+      placeholder="Email"
+      value={email}
+      onChangeText={setEmail}
+      keyboardType="email-address"
+      autoCapitalize="none"
+      autoCorrect={false}
+      returnKeyType="next"
+      onSubmitEditing={() => passRef.current?.focus()}
+    />
+    <TextInput
+      ref={passRef}
+      style={s.input}
+      placeholder="Contraseña"
+      value={password}
+      onChangeText={setPassword}
+      secureTextEntry
+      returnKeyType="go"
+      onSubmitEditing={handleLogin}
+    />
+    <TouchableOpacity style={s.btn} onPress={handleLogin} disabled={loading}>
+      <Text style={s.btnText}>{loading ? 'Ingresando...' : 'Ingresar'}</Text>
+    </TouchableOpacity>
+  </KeyboardAvoidingView>;
 };
 
 const s = StyleSheet.create({

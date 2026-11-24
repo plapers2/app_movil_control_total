@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import client from '../api/client';
 import { avisarError } from '../utils/errores';
+import FormScroll from '../components/FormScroll';
+import { aNumero } from '../utils/validar';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 
@@ -83,16 +85,30 @@ const InsumosScreen = () => {
   };
 
   const guardar = async () => {
-    if (!form.nombre || !form.unidad_medida)
+    if (!form.nombre.trim() || !form.unidad_medida)
       return Alert.alert('Error', 'Nombre y unidad son requeridos.');
+
+    const stock_actual = aNumero(form.stock_actual);
+    const stock_minimo = aNumero(form.stock_minimo);
+    const precio_unidad = aNumero(form.precio_unidad);
+    if (
+      [stock_actual, stock_minimo, precio_unidad].some(
+        n => Number.isNaN(n) || n < 0,
+      )
+    )
+      return Alert.alert(
+        'Error',
+        'Stock y precio deben ser números válidos, no negativos.',
+      );
+
     try {
       setSaving(true);
       const data = {
-        nombre: form.nombre,
+        nombre: form.nombre.trim(),
         unidad_medida: form.unidad_medida,
-        stock_actual: Number(form.stock_actual) || 0,
-        stock_minimo: Number(form.stock_minimo) || 0,
-        precio_unidad: Number(form.precio_unidad) || 0,
+        stock_actual,
+        stock_minimo,
+        precio_unidad,
       };
       if (editando) await client.put(`/insumos/${editando.id}`, data);
       else await client.post('/insumos', data);
@@ -221,86 +237,87 @@ const InsumosScreen = () => {
               <Text style={s.close}>✕</Text>
             </TouchableOpacity>
           </View>
+          <FormScroll>
+            {/* Nombre */}
+            <View style={s.field}>
+              <Text style={s.label}>Nombre *</Text>
+              <TextInput
+                style={s.input}
+                value={form.nombre}
+                onChangeText={v => setForm(prev => ({ ...prev, nombre: v }))}
+                keyboardType="default"
+              />
+            </View>
 
-          {/* Nombre */}
-          <View style={s.field}>
-            <Text style={s.label}>Nombre *</Text>
-            <TextInput
-              style={s.input}
-              value={form.nombre}
-              onChangeText={v => setForm(prev => ({ ...prev, nombre: v }))}
-              keyboardType="default"
-            />
-          </View>
-
-          {/* Unidad medida - Selector */}
-          <View style={s.field}>
-            <Text style={s.label}>Unidad de medida *</Text>
-            <TouchableOpacity
-              style={[s.input, s.selector]}
-              onPress={() => setModalUnidad(true)}
-            >
-              <Text
-                style={
-                  form.unidad_medida ? s.selectorText : s.selectorPlaceholder
-                }
+            {/* Unidad medida - Selector */}
+            <View style={s.field}>
+              <Text style={s.label}>Unidad de medida *</Text>
+              <TouchableOpacity
+                style={[s.input, s.selector]}
+                onPress={() => setModalUnidad(true)}
               >
-                {form.unidad_medida
-                  ? unidadLabel(form.unidad_medida)
-                  : 'Seleccionar unidad...'}
+                <Text
+                  style={
+                    form.unidad_medida ? s.selectorText : s.selectorPlaceholder
+                  }
+                >
+                  {form.unidad_medida
+                    ? unidadLabel(form.unidad_medida)
+                    : 'Seleccionar unidad...'}
+                </Text>
+                <Text style={s.selectorArrow}>▼</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Stock actual */}
+            <View style={s.field}>
+              <Text style={s.label}>Stock actual</Text>
+              <TextInput
+                style={s.input}
+                value={form.stock_actual}
+                onChangeText={v =>
+                  setForm(prev => ({ ...prev, stock_actual: v }))
+                }
+                keyboardType="numeric"
+              />
+            </View>
+
+            {/* Stock mínimo */}
+            <View style={s.field}>
+              <Text style={s.label}>Stock mínimo</Text>
+              <TextInput
+                style={s.input}
+                value={form.stock_minimo}
+                onChangeText={v =>
+                  setForm(prev => ({ ...prev, stock_minimo: v }))
+                }
+                keyboardType="numeric"
+              />
+            </View>
+
+            {/* Precio */}
+            <View style={s.field}>
+              <Text style={s.label}>Precio por unidad</Text>
+              <TextInput
+                style={s.input}
+                value={form.precio_unidad}
+                onChangeText={v =>
+                  setForm(prev => ({ ...prev, precio_unidad: v }))
+                }
+                keyboardType="numeric"
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[s.btnGuardar, saving && { opacity: 0.6 }]}
+              onPress={guardar}
+              disabled={saving}
+            >
+              <Text style={s.btnGuardarText}>
+                {saving ? 'Guardando...' : 'Guardar'}
               </Text>
-              <Text style={s.selectorArrow}>▼</Text>
             </TouchableOpacity>
-          </View>
-
-          {/* Stock actual */}
-          <View style={s.field}>
-            <Text style={s.label}>Stock actual</Text>
-            <TextInput
-              style={s.input}
-              value={form.stock_actual}
-              onChangeText={v =>
-                setForm(prev => ({ ...prev, stock_actual: v }))
-              }
-              keyboardType="numeric"
-            />
-          </View>
-
-          {/* Stock mínimo */}
-          <View style={s.field}>
-            <Text style={s.label}>Stock mínimo</Text>
-            <TextInput
-              style={s.input}
-              value={form.stock_minimo}
-              onChangeText={v =>
-                setForm(prev => ({ ...prev, stock_minimo: v }))
-              }
-              keyboardType="numeric"
-            />
-          </View>
-
-          {/* Precio */}
-          <View style={s.field}>
-            <Text style={s.label}>Precio por unidad</Text>
-            <TextInput
-              style={s.input}
-              value={form.precio_unidad}
-              onChangeText={v =>
-                setForm(prev => ({ ...prev, precio_unidad: v }))
-              }
-              keyboardType="numeric"
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[s.btnGuardar, saving && { opacity: 0.6 }]}
-            onPress={guardar}
-            disabled={saving}
-          >
-            <Text style={s.btnGuardarText}>
-              {saving ? 'Guardando...' : 'Guardar'}
-            </Text>
-          </TouchableOpacity>
+          </FormScroll>
         </View>
       </Modal>
 

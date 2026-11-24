@@ -5,8 +5,10 @@ import {
   TouchableOpacity,
   TextInput,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import { getFechaHoyLocal } from '../utils/date';
+import { esFechaValida } from '../utils/validar';
 
 const OPCIONES = [
   { key: 'dia', label: 'Día' },
@@ -37,24 +39,42 @@ const FiltroPeriodo = ({ periodo, onChange }) => {
   };
 
   const aplicarRango = () => {
-    if (!desde || !hasta) return;
+    if (!esFechaValida(desde) || !esFechaValida(hasta))
+      return Alert.alert(
+        'Fechas inválidas',
+        'Usa el formato AAAA-MM-DD, por ejemplo 2026-11-23.',
+      );
+    if (desde > hasta)
+      return Alert.alert(
+        'Rango inválido',
+        'La fecha "Desde" no puede ser posterior a "Hasta".',
+      );
     onChange({ periodo: 'rango', desde, hasta });
   };
+
+  // Solo dígitos y guiones
+  const limpiarFecha = v => v.replace(/[^\d-]/g, '');
 
   return (
     <View>
       <View style={s.container}>
-        {OPCIONES.map(op => (
-          <TouchableOpacity
-            key={op.key}
-            style={[s.chip, periodo === op.key && s.chipActivo]}
-            onPress={() => seleccionar(op.key)}
-          >
-            <Text style={[s.chipText, periodo === op.key && s.chipTextActivo]}>
-              {op.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {OPCIONES.map(op => {
+          const activo =
+            op.key === 'rango'
+              ? mostrarRango
+              : periodo === op.key && !mostrarRango;
+          return (
+            <TouchableOpacity
+              key={op.key}
+              style={[s.chip, activo && s.chipActivo]}
+              onPress={() => seleccionar(op.key)}
+            >
+              <Text style={[s.chipText, activo && s.chipTextActivo]}>
+                {op.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {mostrarRango && (
@@ -67,6 +87,8 @@ const FiltroPeriodo = ({ periodo, onChange }) => {
               onChangeText={setDesde}
               placeholder="YYYY-MM-DD"
               placeholderTextColor="#aaa"
+              maxLength={10}
+              keyboardType="numbers-and-punctuation"
             />
           </View>
           <View style={s.rangoCampo}>
@@ -77,6 +99,8 @@ const FiltroPeriodo = ({ periodo, onChange }) => {
               onChangeText={setHasta}
               placeholder="YYYY-MM-DD"
               placeholderTextColor="#aaa"
+              maxLength={10}
+              keyboardType="numbers-and-punctuation"
             />
           </View>
           <TouchableOpacity style={s.rangoBtn} onPress={aplicarRango}>
