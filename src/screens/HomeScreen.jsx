@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import client from '../api/client';
 import { getEmpresa, getRol, getUsuario } from '../store/authStore';
 import FiltroPeriodo from '../components/FiltroPeriodo';
@@ -58,26 +58,33 @@ const HomeScreen = () => {
     }
   };
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      setLoading(true);
-      const load = async () => {
-        const e = await getEmpresa();
-        const r = await getRol();
-        const u = await getUsuario();
-        setEsSuper(!!u?.es_superadmin);
-        setEmpresa(e);
-        setRol(r);
-        await Promise.all([
-          cargarResumen({ periodo, ...(rango || {}) }),
-          cargarDeudas(),
-        ]);
-        setLoading(false);
-      };
-      load();
-    });
-    return unsubscribe;
-  }, [navigation, periodo, rango]);
+  const cargarTodo = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [e, r, u] = await Promise.all([
+        getEmpresa(),
+        getRol(),
+        getUsuario(),
+      ]);
+      setEsSuper(!!u?.es_superadmin);
+      setEmpresa(e);
+      setRol(r);
+      await Promise.all([
+        cargarResumen({ periodo, ...(rango || {}) }),
+        cargarDeudas(),
+      ]);
+    } finally {
+      setLoading(false); // el spinner nunca se queda pegado
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodo, rango]);
+
+  // useFocusEffect corre también en la primera carga y al cambiar de periodo
+  useFocusEffect(
+    useCallback(() => {
+      cargarTodo();
+    }, [cargarTodo]),
+  );
 
   const cambiarPeriodo = criterio => {
     setPeriodo(criterio.periodo);
@@ -86,8 +93,7 @@ const HomeScreen = () => {
         ? { desde: criterio.desde, hasta: criterio.hasta }
         : null,
     );
-    setLoading(true);
-    cargarResumen(criterio).finally(() => setLoading(false));
+    // cargarTodo se vuelve a ejecutar solo al cambiar periodo/rango
   };
 
   return (
@@ -108,7 +114,8 @@ const HomeScreen = () => {
         style={[
           s.balanceCard,
           {
-            borderLeftColor: resumen?.balanceTotal >= 0 ? colors.azul : colors.primary,
+            borderLeftColor:
+              resumen?.balanceTotal >= 0 ? colors.azul : colors.primary,
           },
         ]}
         onPress={() => navigation.navigate('Caja')}
@@ -117,7 +124,9 @@ const HomeScreen = () => {
         <Text
           style={[
             s.balanceValor,
-            { color: resumen?.balanceTotal >= 0 ? colors.azul : colors.primary },
+            {
+              color: resumen?.balanceTotal >= 0 ? colors.azul : colors.primary,
+            },
           ]}
         >
           {loading ? '···' : fmt(resumen?.balanceTotal)}
@@ -149,7 +158,11 @@ const HomeScreen = () => {
               value={fmt(resumen?.ingresos)}
               color={colors.verde}
             />
-            <Card label="Gastos" value={fmt(resumen?.gastos)} color={colors.primary} />
+            <Card
+              label="Gastos"
+              value={fmt(resumen?.gastos)}
+              color={colors.primary}
+            />
             <Card
               label="Balance"
               value={fmt(resumen?.balance)}
