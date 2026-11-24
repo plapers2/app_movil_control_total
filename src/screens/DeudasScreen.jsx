@@ -203,7 +203,7 @@ const DeudasScreen = () => {
             {deudaSeleccionada && (
               <ScrollView
                 keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ paddingBottom: 32 }}
+                contentContainerStyle={{ padding: 20, paddingBottom: 32 }}
               >
                 <Text style={s.deudaInfo}>
                   {deudaSeleccionada.clientes?.nombre ||
