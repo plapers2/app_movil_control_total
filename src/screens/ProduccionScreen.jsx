@@ -61,6 +61,9 @@ const PasoProducto = ({ productos, onSeleccionar }) => (
   </View>
 );
 
+// Cantidad sin ceros sobrantes: "10.000" -> "10", "2.500" -> "2.5"
+const fmtCant = n => String(+Number(n).toFixed(3));
+
 // ─── Paso 2: Ajustar insumos y cantidad producida ────────────────────
 const PasoInsumos = ({ producto, onGuardar, onVolver, saving }) => {
   const [cantidad, setCantidad] = useState('1');
@@ -69,6 +72,7 @@ const PasoInsumos = ({ producto, onGuardar, onVolver, saving }) => {
       insumos_id: r.insumos_id,
       nombre: r.insumos?.nombre || '',
       unidad: r.insumos?.unidad_medida || '',
+      stock: Number(r.insumos?.stock_actual ?? 0),
       cantidad_base: Number(r.cantidad),
       cantidad_real: String(Number(r.cantidad) * 1),
     })),
@@ -77,9 +81,24 @@ const PasoInsumos = ({ producto, onGuardar, onVolver, saving }) => {
   const [costoTotal, setCostoTotal] = useState('');
   const sinReceta = !producto.recetas || producto.recetas.length === 0;
 
+  // Lo que se va a usar frente al stock que hay ahora mismo
+  const conStock = insumos.map(i => {
+    const usado = aNumero(i.cantidad_real) || 0;
+    return { ...i, falta: Math.max(0, +(usado - i.stock).toFixed(3)) };
+  });
+  const faltantes = conStock.filter(i => i.falta > 0);
+
+  // Unidades que alcanzan con el stock actual, según la receta base
+  const maxProducible = insumos
+    .filter(i => i.cantidad_base > 0)
+    .reduce(
+      (min, i) => Math.min(min, Math.floor(i.stock / i.cantidad_base)),
+      Infinity,
+    );
+
   // Recalcular cantidades al cambiar la cantidad de producción
   const onCantidadChange = v => {
-    const n = Number(v) || 1;
+    const n = aNumero(v) || 1;
     setCantidad(v);
     setInsumos(prev =>
       prev.map(i => ({
@@ -99,6 +118,14 @@ const PasoInsumos = ({ producto, onGuardar, onVolver, saving }) => {
     const cantNum = aNumero(cantidad);
     if (!cantNum || cantNum <= 0)
       return Alert.alert('Error', 'La cantidad debe ser mayor a 0.');
+
+    if (faltantes.length > 0)
+      return Alert.alert(
+        'Insumos insuficientes',
+        faltantes
+          .map(i => `• ${i.nombre}: faltan ${fmtCant(i.falta)} ${i.unidad}`)
+          .join('\n'),
+      );
 
     if (sinReceta && (!costoTotal || aDinero(costoTotal) <= 0)) {
       return Alert.alert(
@@ -122,6 +149,7 @@ const PasoInsumos = ({ producto, onGuardar, onVolver, saving }) => {
   return (
     <ScrollView
       style={{ flex: 1 }}
+      keyboardShouldPersistTaps="handled"
       contentContainerStyle={{ paddingBottom: 20 }}
     >
       {/* Producto seleccionado */}
@@ -151,13 +179,30 @@ const PasoInsumos = ({ producto, onGuardar, onVolver, saving }) => {
           <Text style={s.sectionHint}>
             Registra cuánto se usó realmente en este lote
           </Text>
-          {insumos.map((item, idx) => (
+          {Number.isFinite(maxProducible) && (
+            <View
+              style={[s.capacidadBox, maxProducible < 1 && s.capacidadBoxMal]}
+            >
+              <Text style={s.capacidadText}>
+                {maxProducible < 1
+                  ? 'Con el stock actual no alcanza para producir una unidad.'
+                  : `Con el stock actual alcanzan para ${maxProducible} unidad${
+                      maxProducible === 1 ? '' : 'es'
+                    }.`}
+              </Text>
+            </View>
+          )}
+          {conStock.map((item, idx) => (
             <View key={item.insumos_id} style={s.insumoRow}>
               <View style={{ flex: 1 }}>
                 <Text style={s.insumoNombre}>{item.nombre}</Text>
                 <Text style={s.insumoBase}>
                   Base receta: {item.cantidad_base} {item.unidad} ×{' '}
                   {cantidad || 1}
+                </Text>
+                <Text style={[s.insumoDisp, item.falta > 0 && s.insumoFalta]}>
+                  Disponible: {fmtCant(item.stock)} {item.unidad}
+                  {item.falta > 0 ? ` · faltan ${fmtCant(item.falta)}` : ''}
                 </Text>
               </View>
               <TextInput
@@ -342,6 +387,7 @@ const ProduccionScreen = () => {
   );
 
   const abrirModal = () => {
+    cargarProductos(); // stock de insumos al día: pudo cambiar en Insumos o Caja
     setPaso(1);
     setProductoSeleccionado(null);
     setModal(true);
@@ -982,6 +1028,17 @@ const s = StyleSheet.create({
   },
   insumoNombre: { fontSize: 14, fontWeight: '600', color: colors.texto },
   insumoBase: { fontSize: 11, color: '#aaa', marginTop: 2 },
+  insumoDisp: { fontSize: 12, color: colors.verde, marginTop: 2 },
+  insumoFalta: { color: colors.primary, fontWeight: '600' },
+  capacidadBox: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#EAF8EE',
+  },
+  capacidadBoxMal: { backgroundColor: '#FFF0F0' },
+  capacidadText: { fontSize: 13, color: colors.texto },
   cantInput: {
     borderWidth: 1,
     borderColor: colors.borde,
