@@ -8,7 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import client from '../api/client';
-import { saveToken, saveUsuario } from '../store/authStore';
+import { saveToken, saveUsuario, clearSession } from '../store/authStore';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -20,6 +20,7 @@ const LoginScreen = ({ navigation }) => {
       return Alert.alert('Error', 'Completa todos los campos.');
     try {
       setLoading(true);
+      await clearSession();
       const res = await client.post('/auth/login', { email, password });
       const { token, usuario, empresas } = res.data.data;
       await saveToken(token);
