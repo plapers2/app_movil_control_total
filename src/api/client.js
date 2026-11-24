@@ -7,7 +7,7 @@ import { clearSession } from '../store/authStore';
 // const API_URL = 'https://apicontroltotal.vidriospelaez.com.co/api/'; // Produccion
 const API_URL = 'http://10.0.2.2:3000/api/'; // Desarrollo
 
-const client = axios.create({ baseURL: API_URL, timeout: 15000 });
+const client = axios.create({ baseURL: API_URL, timeout: 30000 });
 
 client.interceptors.request.use(async config => {
   const token = await AsyncStorage.getItem('token');
@@ -16,6 +16,17 @@ client.interceptors.request.use(async config => {
 });
 
 let cerrandoSesion = false;
+
+const cerrarSesion = async (titulo, mensaje) => {
+  if (cerrandoSesion) return;
+  cerrandoSesion = true;
+  await clearSession();
+  resetTo('Login');
+  Alert.alert(titulo, mensaje);
+  setTimeout(() => {
+    cerrandoSesion = false;
+  }, 2000);
+};
 
 client.interceptors.response.use(
   response => response,
@@ -27,15 +38,20 @@ client.interceptors.response.use(
       resetTo('CambiarPassword');
     }
 
-    // Token vencido o inválido: limpiar sesión y volver al login (una sola vez)
-    if (status === 401 && !esLogin && !cerrandoSesion) {
-      cerrandoSesion = true;
-      await clearSession();
-      resetTo('Login');
-      Alert.alert('Sesión expirada', 'Inicia sesión de nuevo para continuar.');
-      setTimeout(() => {
-        cerrandoSesion = false;
-      }, 2000);
+    // Token vencido, inválido o usuario inactivo
+    if (status === 401 && !esLogin) {
+      await cerrarSesion(
+        'Sesión expirada',
+        'Inicia sesión de nuevo para continuar.',
+      );
+    }
+
+    // Membresía desactivada: el token ya no sirve para esta empresa
+    if (status === 403 && data?.message === 'Sin acceso a esta empresa.') {
+      await cerrarSesion(
+        'Acceso revocado',
+        'Ya no tienes acceso a esta empresa.',
+      );
     }
 
     return Promise.reject(error);
