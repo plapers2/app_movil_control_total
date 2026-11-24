@@ -6,7 +6,9 @@ import {
   StyleSheet,
   FlatList,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
+import { CommonActions } from '@react-navigation/native';
 import client from '../api/client';
 import {
   saveToken,
@@ -14,14 +16,24 @@ import {
   saveRol,
   getUsuario,
 } from '../store/authStore';
+import { avisarError } from '../utils/errores';
 
 const SelectEmpresaScreen = ({ navigation, route }) => {
-  const empresas = route.params?.empresas || [];
+  const [empresas, setEmpresas] = useState(route.params?.empresas || []);
+  const [cargando, setCargando] = useState(!route.params?.empresas);
   const [esSuper, setEsSuper] = useState(false);
-  
+
   useEffect(() => {
     getUsuario().then(u => setEsSuper(!!u?.es_superadmin));
-  }, []);
+
+    // Si la app se reabrió no llegan params: pedir las empresas al servidor
+    if (route.params?.empresas) return;
+    client
+      .get('/auth/me')
+      .then(res => setEmpresas(res.data.data.empresas || []))
+      .catch(err => avisarError(err, 'No se pudieron cargar tus empresas.'))
+      .finally(() => setCargando(false));
+  }, [route.params?.empresas]);
 
   const handleSelect = async membresia => {
     try {
@@ -31,9 +43,18 @@ const SelectEmpresaScreen = ({ navigation, route }) => {
       await saveToken(res.data.data.token);
       await saveEmpresa(membresia.empresas);
       await saveRol(res.data.data.rol);
-      navigation.replace('Main', { rol: res.data.data.rol });
+      // reset en vez de replace: no deja pilas de "Main" duplicadas
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'Main', params: { rol: res.data.data.rol } }],
+        }),
+      );
     } catch (err) {
-      Alert.alert('Error', 'No se pudo seleccionar la empresa.');
+      Alert.alert(
+        'Error',
+        err.response?.data?.message || 'No se pudo seleccionar la empresa.',
+      );
     }
   };
 
@@ -60,6 +81,15 @@ const SelectEmpresaScreen = ({ navigation, route }) => {
             <Text style={s.rol}>{item.roles?.nombre}</Text>
           </TouchableOpacity>
         )}
+        ListEmptyComponent={
+          cargando ? (
+            <ActivityIndicator color="#E63946" style={{ marginTop: 20 }} />
+          ) : (
+            <Text style={{ color: '#aaa', textAlign: 'center', marginTop: 20 }}>
+              No perteneces a ninguna empresa activa.
+            </Text>
+          )
+        }
       />
     </View>
   );
