@@ -22,6 +22,7 @@ const RentabilidadScreen = () => {
   const navigation = useNavigation();
   const [productos, setProductos] = useState([]);
   const [indirectos, setIndirectos] = useState(null);
+  const [consumoPropio, setConsumoPropio] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Filtro de periodo (dia|semana|mes|total|rango), igual al de Home/Caja.
@@ -35,6 +36,7 @@ const RentabilidadScreen = () => {
       const res = await client.get(`/reportes/rentabilidad?${qp.toString()}`);
       setProductos(res.data.data.productos || []);
       setIndirectos(res.data.data.indirectos || null);
+      setConsumoPropio(res.data.data.consumoPropio || null);
     } catch (err) {
       avisarError(err, 'No se pudo cargar la rentabilidad.');
     }
@@ -108,7 +110,10 @@ const RentabilidadScreen = () => {
               <Text
                 style={[
                   s.resumenValor,
-                  { color: totales.utilidad >= 0 ? colors.verde : colors.primary },
+                  {
+                    color:
+                      totales.utilidad >= 0 ? colors.verde : colors.primary,
+                  },
                 ]}
               >
                 {fmt(totales.utilidad)}
@@ -132,6 +137,19 @@ const RentabilidadScreen = () => {
         </View>
       )}
 
+      {consumoPropio?.unidades > 0 && (
+        <View style={s.consumoBox}>
+          <Text style={s.consumoTitulo}>
+            🍽 Consumo propio (no cuenta en la utilidad)
+          </Text>
+          <Text style={s.consumoTexto}>
+            {consumoPropio.unidades} unidad
+            {consumoPropio.unidades === 1 ? '' : 'es'} · costo{' '}
+            {fmt(consumoPropio.costoConVariable)}
+          </Text>
+        </View>
+      )}
+
       <FlatList
         data={productos}
         keyExtractor={item => String(item.productos_id)}
@@ -148,7 +166,9 @@ const RentabilidadScreen = () => {
                   s.cardUtilidad,
                   {
                     color:
-                      item.utilidadConVariable >= 0 ? colors.verde : colors.primary,
+                      item.utilidadConVariable >= 0
+                        ? colors.verde
+                        : colors.primary,
                   },
                 ]}
               >
@@ -210,7 +230,11 @@ const s = StyleSheet.create({
   },
   resumenRow: { flexDirection: 'row', justifyContent: 'space-between' },
   resumenItem: { alignItems: 'center', flex: 1 },
-  resumenLabel: { fontSize: 11, color: colors.textoSuave, textTransform: 'uppercase' },
+  resumenLabel: {
+    fontSize: 11,
+    color: colors.textoSuave,
+    textTransform: 'uppercase',
+  },
   resumenValor: {
     fontSize: 16,
     fontWeight: 'bold',
@@ -223,6 +247,15 @@ const s = StyleSheet.create({
     marginTop: 10,
     textAlign: 'center',
   },
+  consumoBox: {
+    backgroundColor: '#FFF8E6',
+    marginHorizontal: 16,
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 8,
+  },
+  consumoTitulo: { fontSize: 13, fontWeight: '700', color: colors.texto },
+  consumoTexto: { fontSize: 13, color: colors.textoSuave, marginTop: 2 },
   empty: {
     textAlign: 'center',
     color: '#aaa',

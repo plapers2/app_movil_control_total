@@ -28,14 +28,19 @@ import ModalAnular from '../components/ModalAnular';
 import { colors } from '../theme/colors';
 
 const DOMICILIO_DEFECTO = '3000';
+
 const CANALES = [
   { val: 'punto_venta', label: 'Punto de venta' },
   { val: 'domicilio', label: 'Domicilio' },
+  { val: 'consumo_propio', label: 'Consumo propio' },
 ];
+// Al editar no se cambia desde/hacia consumo propio (el backend lo rechaza)
+const CANALES_EDIT = CANALES.filter(c => c.val !== 'consumo_propio');
 const ETIQUETA_CANAL = {
   punto_venta: 'Punto de venta',
   domicilio: 'Domicilio',
   encargo: 'Encargo',
+  consumo_propio: 'Consumo propio',
 };
 
 const VentasScreen = () => {
@@ -219,15 +224,19 @@ const VentasScreen = () => {
     (s, i) => s + i.precio_unitario * (aNumero(i.cantidad) || 0),
     0,
   );
-  const valorDomicilio =
-    canal === 'domicilio' ? aDinero(domicilio) || 0 : 0;
-  const total = subtotalItems + valorDomicilio;
+  const valorDomicilio = canal === 'domicilio' ? aDinero(domicilio) || 0 : 0;
+  const esConsumo = canal === 'consumo_propio';
+  const total = esConsumo ? 0 : subtotalItems + valorDomicilio;
 
   const elegirCanal = val => {
     setCanal(val);
     if (val === 'domicilio') setDomicilio(DOMICILIO_DEFECTO);
+    if (val === 'consumo_propio') {
+      setCredito(false);
+      setAbonoInicial('');
+      setClienteSeleccionado(null);
+    }
   };
-
   const guardar = async () => {
     if (!items.length)
       return Alert.alert('Error', 'Agrega al menos un producto.');
@@ -375,8 +384,7 @@ const VentasScreen = () => {
       setSavingEdit(true);
       await client.put(`/ventas/${ventaEditando.id}`, {
         canal: canalEdit,
-        valor_domicilio:
-          canalEdit === 'domicilio' ? aDinero(domicilioEdit) : 0,
+        valor_domicilio: canalEdit === 'domicilio' ? aDinero(domicilioEdit) : 0,
         notas: ventaEditando.notas,
         items: itemsEdit.map(({ productos_id, cantidad, precio_unitario }) => ({
           productos_id,
@@ -563,7 +571,7 @@ const VentasScreen = () => {
             )}
 
             <Text style={s.sectionLabel}>Tipo de venta</Text>
-            <View style={s.toggle}>
+            <View style={[s.toggle, { flexWrap: 'wrap' }]}>
               {CANALES.map(opt => (
                 <TouchableOpacity
                   key={opt.val}
@@ -594,64 +602,82 @@ const VentasScreen = () => {
               </View>
             )}
 
-            <Text style={s.sectionLabel}>
-              Cliente{credito ? '' : ' (opcional)'}
-            </Text>
-            <TouchableOpacity
-              style={s.clienteSelector}
-              onPress={() => setModalClientes(true)}
-            >
-              <Text
-                style={
-                  clienteSeleccionado ? s.clienteNombre : s.clientePlaceholder
-                }
-              >
-                {clienteSeleccionado
-                  ? clienteSeleccionado.nombre
-                  : 'Sin cliente — toca para asignar'}
+            {esConsumo ? (
+              <Text style={[s.cardSub, { marginHorizontal: 16}]}>
+                Consumo propio: descuenta el stock, no registra dinero en caja
+                ni cuenta como venta en la rentabilidad.
               </Text>
-              {clienteSeleccionado && (
-                <TouchableOpacity onPress={() => setClienteSeleccionado(null)}>
-                  <Text style={s.removeBtn}>✕</Text>
-                </TouchableOpacity>
-              )}
-            </TouchableOpacity>
-            <Text style={s.sectionLabel}>Forma de pago</Text>
-            <View style={s.toggle}>
-              {[
-                { val: false, label: 'Pago completo' },
-                { val: true, label: 'A crédito' },
-              ].map(opt => (
+            ) : (
+              <>
+                <Text style={s.sectionLabel}>
+                  Cliente{credito ? '' : ' (opcional)'}
+                </Text>
                 <TouchableOpacity
-                  key={String(opt.val)}
-                  style={[s.toggleBtn, credito === opt.val && s.toggleActive]}
-                  onPress={() => setCredito(opt.val)}
+                  style={s.clienteSelector}
+                  onPress={() => setModalClientes(true)}
                 >
                   <Text
-                    style={[
-                      s.toggleText,
-                      credito === opt.val && s.toggleTextActive,
-                    ]}
+                    style={
+                      clienteSeleccionado
+                        ? s.clienteNombre
+                        : s.clientePlaceholder
+                    }
                   >
-                    {opt.label}
+                    {clienteSeleccionado
+                      ? clienteSeleccionado.nombre
+                      : 'Sin cliente — toca para asignar'}
                   </Text>
+                  {clienteSeleccionado && (
+                    <TouchableOpacity
+                      onPress={() => setClienteSeleccionado(null)}
+                    >
+                      <Text style={s.removeBtn}>✕</Text>
+                    </TouchableOpacity>
+                  )}
                 </TouchableOpacity>
-              ))}
-            </View>
 
-            {credito && (
-              <View style={s.field}>
-                <Text style={s.fieldLabel}>
-                  Abono inicial{aDinero(abonoInicial) > 0 ? '' : ' (opcional)'}
-                </Text>
-                <TextInput
-                  style={s.input}
-                  value={abonoInicial}
-                  onChangeText={setAbonoInicial}
-                  keyboardType="numeric"
-                  placeholder="0"
-                />
-              </View>
+                <Text style={s.sectionLabel}>Forma de pago</Text>
+                <View style={s.toggle}>
+                  {[
+                    { val: false, label: 'Pago completo' },
+                    { val: true, label: 'A crédito' },
+                  ].map(opt => (
+                    <TouchableOpacity
+                      key={String(opt.val)}
+                      style={[
+                        s.toggleBtn,
+                        credito === opt.val && s.toggleActive,
+                      ]}
+                      onPress={() => setCredito(opt.val)}
+                    >
+                      <Text
+                        style={[
+                          s.toggleText,
+                          credito === opt.val && s.toggleTextActive,
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {credito && (
+                  <View style={s.field}>
+                    <Text style={s.fieldLabel}>
+                      Abono inicial
+                      {aDinero(abonoInicial) > 0 ? '' : ' (opcional)'}
+                    </Text>
+                    <TextInput
+                      style={s.input}
+                      value={abonoInicial}
+                      onChangeText={setAbonoInicial}
+                      keyboardType="numeric"
+                      placeholder="0"
+                    />
+                  </View>
+                )}
+              </>
             )}
 
             {items.length > 0 && valorDomicilio > 0 && (
@@ -662,7 +688,9 @@ const VentasScreen = () => {
             {items.length > 0 && (
               <View style={s.totalRow}>
                 <Text style={s.totalLabel}>Total</Text>
-                <Text style={s.totalValue}>{fmt(total)}</Text>
+                <Text style={s.totalValue}>
+                  {esConsumo ? 'Sin costo' : fmt(total)}
+                </Text>
               </View>
             )}
           </ScrollView>
@@ -673,7 +701,11 @@ const VentasScreen = () => {
             disabled={saving}
           >
             <Text style={s.btnGuardarText}>
-              {saving ? 'Guardando...' : `Registrar venta · ${fmt(total)}`}
+              {saving
+                ? 'Guardando...'
+                : esConsumo
+                ? 'Registrar consumo propio'
+                : `Registrar venta · ${fmt(total)}`}
             </Text>
           </TouchableOpacity>
         </View>
@@ -884,26 +916,32 @@ const VentasScreen = () => {
                 </Text>
               </View>
             )}
-
-            <Text style={s.sectionLabel}>Canal</Text>
-            <View style={s.toggle}>
-              {CANALES.map(opt => (
-                <TouchableOpacity
-                  key={opt.val}
-                  style={[s.toggleBtn, canalEdit === opt.val && s.toggleActive]}
-                  onPress={() => elegirCanalEdit(opt.val)}
-                >
-                  <Text
-                    style={[
-                      s.toggleText,
-                      canalEdit === opt.val && s.toggleTextActive,
-                    ]}
-                  >
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {canalEdit !== 'consumo_propio' && (
+              <>
+                <Text style={s.sectionLabel}>Canal</Text>
+                <View style={s.toggle}>
+                  {CANALES_EDIT.map(opt => (
+                    <TouchableOpacity
+                      key={opt.val}
+                      style={[
+                        s.toggleBtn,
+                        canalEdit === opt.val && s.toggleActive,
+                      ]}
+                      onPress={() => elegirCanalEdit(opt.val)}
+                    >
+                      <Text
+                        style={[
+                          s.toggleText,
+                          canalEdit === opt.val && s.toggleTextActive,
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
 
             {canalEdit === 'domicilio' && (
               <View style={s.field}>
@@ -1036,7 +1074,12 @@ const s = StyleSheet.create({
   cardRow: { flexDirection: 'row', justifyContent: 'space-between' },
   cardTitle: { fontWeight: '700', fontSize: 15, color: colors.texto },
   cardTotal: { fontWeight: '700', fontSize: 15, color: colors.verde },
-  cardSub: { color: colors.textoSuave, fontSize: 12, marginTop: 2, marginBottom: 6 },
+  cardSub: {
+    color: colors.textoSuave,
+    fontSize: 12,
+    marginTop: 2,
+    marginBottom: 6,
+  },
   cardItem: { color: '#555', fontSize: 13 },
   modal: { flex: 1, backgroundColor: '#fff', paddingBottom: BOTTOM_INSET },
   modalHeader: {
@@ -1161,7 +1204,10 @@ const s = StyleSheet.create({
     borderColor: colors.borde,
     alignItems: 'center',
   },
-  toggleActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  toggleActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
   toggleText: { color: colors.textoSuave, fontWeight: '600' },
   toggleTextActive: { color: '#fff' },
   field: { paddingHorizontal: 16, marginBottom: 8 },
