@@ -187,17 +187,9 @@ const HomeScreen = () => {
         </>
       )}
 
-      <Text style={s.section}>Accesos rápidos</Text>
+      <Text style={s.section}>Más opciones</Text>
       <View style={s.grid}>
         {[
-          { label: '📦 Ventas', screen: 'Ventas' },
-          ...(rol === 'admin'
-            ? [{ label: '🧂 Insumos', screen: 'Insumos' }]
-            : []),
-          { label: '🫓 Productos', screen: 'Productos' },
-          { label: '🏭 Producción', screen: 'Produccion' },
-          { label: '👥 Clientes', screen: 'Clientes' },
-          { label: '💰 Caja', screen: 'Caja' },
           { label: '🧾 Deudas', screen: 'Deudas' },
           { label: '⏰ Clientes inactivos', screen: 'ClientesInactivos' },
           ...(rol === 'admin'
