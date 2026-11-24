@@ -267,6 +267,7 @@ const ProduccionScreen = () => {
     setRefrescando(true);
     try {
       const qp = paramsFecha({ periodo, ...(rango || {}) });
+      if (filtroProducto) qp.set('productos_id', String(filtroProducto));
       const l = await client.get(
         `/produccion?${qp.toString()}&page=1&limit=10`,
       );
@@ -284,7 +285,7 @@ const ProduccionScreen = () => {
         setRefrescando(false);
       }
     }
-  }, [periodo, rango]);
+  }, [periodo, rango, filtroProducto]);
 
   // Productos y rol: solo al entrar a la pantalla
   const cargarProductos = useCallback(async () => {
@@ -304,6 +305,7 @@ const ProduccionScreen = () => {
       setLoadingMas(true);
       const siguiente = page + 1;
       const qp = paramsFecha({ periodo, ...(rango || {}) });
+      if (filtroProducto) qp.set('productos_id', String(filtroProducto));
       const res = await client.get(
         `/produccion?${qp.toString()}&page=${siguiente}&limit=10`,
       );
@@ -325,20 +327,7 @@ const ProduccionScreen = () => {
         ? { desde: criterio.desde, hasta: criterio.hasta }
         : null,
     );
-    setFiltroProducto(null);
   };
-
-  const productosEnLotes = productos.filter(p =>
-    lotes.some(l =>
-      l.lotes_produccion_items?.some(i => i.productos_id === p.id),
-    ),
-  );
-
-  const lotesFiltrados = filtroProducto
-    ? lotes.filter(l =>
-        l.lotes_produccion_items?.some(i => i.productos_id === filtroProducto),
-      )
-    : lotes;
 
   useFocusEffect(
     useCallback(() => {
@@ -527,9 +516,9 @@ const ProduccionScreen = () => {
           style={{ marginBottom: 8 }}
         />
       )}
-      {productosEnLotes.length > 0 && (
+      {productos.length > 0 && (
         <FlatList
-          data={[{ id: '__todos__', nombre: 'Todos' }, ...productosEnLotes]}
+          data={[{ id: '__todos__', nombre: 'Todos' }, ...productos]}
           keyExtractor={item => String(item.id)}
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -557,10 +546,16 @@ const ProduccionScreen = () => {
       )}
 
       <FlatList
-        data={lotesFiltrados}
+        data={lotes}
         keyExtractor={item => String(item.id)}
         contentContainerStyle={{ padding: 16 }}
-        ListEmptyComponent={<Text style={s.empty}>Sin lotes registrados</Text>}
+        ListEmptyComponent={
+          <Text style={s.empty}>
+            {filtroProducto
+              ? 'Sin lotes de este producto en el periodo'
+              : 'Sin lotes registrados'}
+          </Text>
+        }
         renderItem={({ item }) => (
           <TouchableOpacity style={s.card} onPress={() => verDetalle(item)}>
             <View style={s.cardRow}>
@@ -1058,7 +1053,12 @@ const s = StyleSheet.create({
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
-  filtroChipText: { fontSize: 13, lineHeight: 18, height: 18, color: colors.textoSuave },
+  filtroChipText: {
+    fontSize: 13,
+    lineHeight: 18,
+    height: 18,
+    color: colors.textoSuave,
+  },
   filtroChipTextActivo: { color: '#fff', fontWeight: '600' },
   actions: {
     flexDirection: 'row',
