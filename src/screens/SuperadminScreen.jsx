@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { useFocusEffect, CommonActions } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -11,9 +11,9 @@ import {
   Alert,
 } from 'react-native';
 import client from '../api/client';
-import { clearSession } from '../store/authStore';
 import CredencialesModal from '../components/CredencialesModal';
 import { HEADER_TOP } from '../utils/safeArea';
+import { cerrarSesion } from '../utils/sesion';
 
 const SuperadminScreen = ({ navigation }) => {
   const [empresas, setEmpresas] = useState([]);
@@ -42,13 +42,6 @@ const SuperadminScreen = ({ navigation }) => {
       cargar();
     }, [cargar]),
   );
-
-  const salir = async () => {
-    await clearSession();
-    navigation.dispatch(
-      CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }),
-    );
-  };
 
   const generarClave = usuario => {
     Alert.alert(
@@ -102,7 +95,7 @@ const SuperadminScreen = ({ navigation }) => {
         {puedeVolver ? (
           <View style={{ width: 60 }} />
         ) : (
-          <TouchableOpacity onPress={salir}>
+          <TouchableOpacity onPress={cerrarSesion}>
             <Text style={s.back}>Salir</Text>
           </TouchableOpacity>
         )}

@@ -7,17 +7,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { useNavigation, CommonActions } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import client from '../api/client';
-import {
-  getEmpresa,
-  clearSession,
-  getRol,
-  getUsuario,
-} from '../store/authStore';
+import { getEmpresa, getRol, getUsuario } from '../store/authStore';
 import FiltroPeriodo from '../components/FiltroPeriodo';
 import { avisarError } from '../utils/errores';
 import { HEADER_TOP } from '../utils/safeArea';
+import { abrirMenuCuenta } from '../utils/sesion';
 
 const Card = ({ label, value, color }) => (
   <View style={[s.card, { borderLeftColor: color }]}>
@@ -92,13 +88,6 @@ const HomeScreen = () => {
     cargarResumen(criterio).finally(() => setLoading(false));
   };
 
-  const handleLogout = async () => {
-    await clearSession();
-    navigation.dispatch(
-      CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }),
-    );
-  };
-
   const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 
   return (
@@ -108,8 +97,8 @@ const HomeScreen = () => {
           <Text style={s.greeting}>Hola 👋</Text>
           <Text style={s.empresa}>{empresa?.nombre || 'Mi empresa'}</Text>
         </View>
-        <TouchableOpacity onPress={handleLogout} style={s.logoutBtn}>
-          <Text style={s.logoutText}>Salir</Text>
+        <TouchableOpacity onPress={abrirMenuCuenta} style={s.logoutBtn}>
+          <Text style={s.logoutText}>Cuenta ▾</Text>
         </TouchableOpacity>
       </View>
 

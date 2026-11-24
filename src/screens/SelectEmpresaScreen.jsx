@@ -18,6 +18,7 @@ import {
 } from '../store/authStore';
 import { avisarError } from '../utils/errores';
 import { HEADER_TOP } from '../utils/safeArea';
+import { cerrarSesion } from '../utils/sesion';
 
 const SelectEmpresaScreen = ({ navigation, route }) => {
   const [empresas, setEmpresas] = useState(route.params?.empresas || []);
@@ -61,6 +62,11 @@ const SelectEmpresaScreen = ({ navigation, route }) => {
 
   return (
     <View style={s.container}>
+      {route.params?.desdeCambio && (
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={s.volver}>‹ Volver</Text>
+        </TouchableOpacity>
+      )}
       <Text style={s.title}>Selecciona una empresa</Text>
       <FlatList
         data={empresas}
@@ -75,6 +81,11 @@ const SelectEmpresaScreen = ({ navigation, route }) => {
               <Text style={s.rol}>superadmin</Text>
             </TouchableOpacity>
           ) : null
+        }
+        ListFooterComponent={
+          <TouchableOpacity onPress={cerrarSesion} style={s.salir}>
+            <Text style={s.salirText}>Cerrar sesión</Text>
+          </TouchableOpacity>
         }
         renderItem={({ item }) => (
           <TouchableOpacity style={s.card} onPress={() => handleSelect(item)}>
@@ -97,6 +108,9 @@ const SelectEmpresaScreen = ({ navigation, route }) => {
 };
 
 const s = StyleSheet.create({
+  volver: { color: '#E63946', fontSize: 16, marginBottom: 12 },
+  salir: { alignItems: 'center', marginTop: 12, padding: 12 },
+  salirText: { color: '#888', fontSize: 15 },
   container: {
     flex: 1,
     padding: 24,
