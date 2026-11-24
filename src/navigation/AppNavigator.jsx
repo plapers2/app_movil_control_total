@@ -23,6 +23,7 @@ import CajaScreen from '../screens/CajaScreen';
 import DeudasScreen from '../screens/DeudasScreen';
 import UsuariosScreen from '../screens/UsuariosScreen';
 import NuevaEmpresaScreen from '../screens/NuevaEmpresaScreen';
+import { colors } from '../theme/colors';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -39,8 +40,8 @@ const TAB_ICONS = {
 
 const tabOptions = ({ route }) => ({
   headerShown: false,
-  tabBarActiveTintColor: '#E63946',
-  tabBarInactiveTintColor: '#888',
+  tabBarActiveTintColor: colors.primary,
+  tabBarInactiveTintColor: colors.textoSuave,
   tabBarStyle: { backgroundColor: '#fff' },
   tabBarIcon: ({ color, size }) => (
     <Icon name={TAB_ICONS[route.name] || 'circle'} size={size} color={color} />
@@ -137,7 +138,7 @@ const MainTabs = ({ route }) => {
   if (!rol)
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#E63946" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   return rol === 'admin' ? <AdminTabs /> : <EmpleadoTabs />;
@@ -171,7 +172,7 @@ const AppNavigator = () => {
   if (loading)
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#E63946" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
 

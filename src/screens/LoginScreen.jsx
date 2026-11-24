@@ -11,6 +11,7 @@ import {
 import client from '../api/client';
 import { saveToken, saveUsuario, clearSession } from '../store/authStore';
 import { validarEmail } from '../utils/validar';
+import { colors } from '../theme/colors';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -98,24 +99,24 @@ const s = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     textAlign: 'center',
-    color: '#E63946',
+    color: colors.primary,
   },
   subtitle: {
     fontSize: 16,
     textAlign: 'center',
-    color: '#888',
+    color: colors.textoSuave,
     marginBottom: 40,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     borderRadius: 8,
     padding: 12,
     marginBottom: 16,
     fontSize: 16,
   },
   btn: {
-    backgroundColor: '#E63946',
+    backgroundColor: colors.primary,
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',

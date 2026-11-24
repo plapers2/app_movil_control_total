@@ -16,6 +16,7 @@ import { coincide } from '../utils/texto';
 import { avisarError } from '../utils/errores';
 import FormScroll from '../components/FormScroll';
 import { HEADER_TOP, BOTTOM_INSET } from '../utils/safeArea';
+import { colors } from '../theme/colors';
 
 const ClientesScreen = () => {
   const [clientes, setClientes] = useState([]);
@@ -105,7 +106,7 @@ const ClientesScreen = () => {
   if (loading)
     return (
       <View style={s.center}>
-        <ActivityIndicator size="large" color="#E63946" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
 
@@ -229,7 +230,7 @@ const ClientesScreen = () => {
 };
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: colors.fondo },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
@@ -239,9 +240,9 @@ const s = StyleSheet.create({
     paddingTop: HEADER_TOP,
     backgroundColor: '#fff',
   },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#333' },
+  title: { fontSize: 22, fontWeight: 'bold', color: colors.texto },
   btnNew: {
-    backgroundColor: '#E63946',
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
@@ -254,7 +255,7 @@ const s = StyleSheet.create({
     marginTop: 12,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     borderRadius: 8,
     backgroundColor: '#fff',
   },
@@ -262,9 +263,9 @@ const s = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#333',
+    color: colors.texto,
   },
-  removeBtn: { color: '#E63946', fontSize: 16 },
+  removeBtn: { color: colors.primary, fontSize: 16 },
   empty: { textAlign: 'center', color: '#aaa', marginTop: 40 },
   card: {
     backgroundColor: '#fff',
@@ -278,13 +279,13 @@ const s = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#E63946',
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  cardNombre: { fontSize: 16, fontWeight: '700', color: '#333' },
-  cardSub: { fontSize: 13, color: '#888', marginTop: 2 },
+  cardNombre: { fontSize: 16, fontWeight: '700', color: colors.texto },
+  cardSub: { fontSize: 13, color: colors.textoSuave, marginTop: 2 },
   actions: { flexDirection: 'row', gap: 8 },
   icon: { fontSize: 16 },
   notas: {
@@ -306,19 +307,19 @@ const s = StyleSheet.create({
     borderColor: '#eee',
   },
   modalTitle: { fontSize: 20, fontWeight: 'bold' },
-  close: { fontSize: 20, color: '#888' },
+  close: { fontSize: 20, color: colors.textoSuave },
   field: { paddingHorizontal: 20, paddingTop: 16 },
-  label: { fontSize: 13, color: '#888', marginBottom: 6 },
+  label: { fontSize: 13, color: colors.textoSuave, marginBottom: 6 },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     borderRadius: 8,
     padding: 12,
     fontSize: 15,
   },
   btnGuardar: {
     margin: 20,
-    backgroundColor: '#E63946',
+    backgroundColor: colors.primary,
     padding: 16,
     borderRadius: 10,
     alignItems: 'center',

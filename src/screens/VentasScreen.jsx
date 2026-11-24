@@ -11,8 +11,6 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import client from '../api/client';
 import { getFechaHoyLocal, fmtFecha } from '../utils/date';
@@ -22,11 +20,12 @@ import BotonVerMas from '../components/BotonVerMas';
 import SelectorProductoModal from '../components/SelectorProductoModal';
 import { coincide } from '../utils/texto';
 import { avisarError } from '../utils/errores';
-import KeyboardView from '../components/KeyboardView';
 import { aDinero, aNumero } from '../utils/validar';
 import { HEADER_TOP, BOTTOM_INSET } from '../utils/safeArea';
-
-const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
+import { fmt } from '../utils/formato';
+import { paramsFecha } from '../utils/query';
+import ModalAnular from '../components/ModalAnular';
+import { colors } from '../theme/colors';
 
 const VentasScreen = () => {
   const [ventas, setVentas] = useState([]);
@@ -67,16 +66,6 @@ const VentasScreen = () => {
   const [credito, setCredito] = useState(false);
   const [abonoInicial, setAbonoInicial] = useState('');
   const [modalProductos, setModalProductos] = useState(false);
-
-  const paramsFecha = (criterio, textoBusqueda) => {
-    const params = new URLSearchParams({ periodo: criterio.periodo });
-    if (criterio.desde && criterio.hasta) {
-      params.set('desde', criterio.desde);
-      params.set('hasta', criterio.hasta);
-    }
-    if (textoBusqueda?.trim()) params.set('q', textoBusqueda.trim());
-    return params;
-  };
 
   // Evita que una respuesta lenta pise a una más reciente
   const reqId = useRef(0);
@@ -385,7 +374,7 @@ const VentasScreen = () => {
   if (loading)
     return (
       <View style={s.center}>
-        <ActivityIndicator size="large" color="#E63946" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
 
@@ -411,7 +400,7 @@ const VentasScreen = () => {
         {buscando ? (
           <ActivityIndicator
             size="small"
-            color="#E63946"
+            color={colors.primary}
             style={s.buscadorIcono}
           />
         ) : busqueda.length > 0 ? (
@@ -643,7 +632,7 @@ const VentasScreen = () => {
               {ventaDetalle.estado_pago !== 'pagada' && (
                 <View style={s.detalleSeccion}>
                   <Text style={s.detalleLabel}>Estado de pago</Text>
-                  <Text style={[s.detalleValor, { color: '#E63946' }]}>
+                  <Text style={[s.detalleValor, { color: colors.primary }]}>
                     {ventaDetalle.estado_pago === 'pendiente'
                       ? 'Pendiente'
                       : 'Parcial'}
@@ -681,7 +670,7 @@ const VentasScreen = () => {
                 <Text
                   style={[
                     s.detalleLabel,
-                    { fontSize: 16, fontWeight: 'bold', color: '#333' },
+                    { fontSize: 16, fontWeight: 'bold', color: colors.texto },
                   ]}
                 >
                   Total
@@ -689,7 +678,7 @@ const VentasScreen = () => {
                 <Text
                   style={[
                     s.detalleValor,
-                    { fontSize: 16, color: '#2DC653', fontWeight: '700' },
+                    { fontSize: 16, color: colors.verde, fontWeight: '700' },
                   ]}
                 >
                   {fmt(ventaDetalle.total)}
@@ -878,58 +867,24 @@ const VentasScreen = () => {
         onQuitar={quitarItemEdit}
       />
 
-      <Modal
+      <ModalAnular
         visible={modalAnular}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setModalAnular(false)}
-      >
-        <KeyboardAvoidingView
-          style={s.overlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <View style={s.confirmBox}>
-            <Text style={s.confirmTitle}>
-              Anular venta #{ventaAnulando?.id}
-            </Text>
-            <Text style={s.confirmText}>
-              El stock vendido se devolverá al inventario. Esta acción queda
-              registrada.
-            </Text>
-            <Text style={s.fieldLabel}>Motivo *</Text>
-            <TextInput
-              style={[s.input, { minHeight: 70 }]}
-              value={motivoAnular}
-              onChangeText={setMotivoAnular}
-              placeholder="Ej: Error al registrar, cliente canceló..."
-              multiline
-            />
-            <View style={s.confirmActions}>
-              <TouchableOpacity
-                style={s.confirmCancelBtn}
-                onPress={() => setModalAnular(false)}
-              >
-                <Text style={s.confirmCancelText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[s.confirmDeleteBtn, anulando && { opacity: 0.6 }]}
-                onPress={confirmarAnular}
-                disabled={anulando}
-              >
-                <Text style={s.confirmDeleteText}>
-                  {anulando ? 'Anulando...' : 'Anular venta'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        titulo={`Anular venta #${ventaAnulando?.id}`}
+        descripcion="El stock vendido se devolverá al inventario. Esta acción queda registrada."
+        placeholder="Ej: Error al registrar, cliente canceló..."
+        textoBoton="Anular venta"
+        motivo={motivoAnular}
+        onChangeMotivo={setMotivoAnular}
+        anulando={anulando}
+        onConfirmar={confirmarAnular}
+        onCerrar={() => setModalAnular(false)}
+      />
     </View>
   );
 };
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: colors.fondo },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
@@ -939,7 +894,7 @@ const s = StyleSheet.create({
     paddingTop: HEADER_TOP,
     backgroundColor: '#fff',
   },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#333' },
+  title: { fontSize: 22, fontWeight: 'bold', color: colors.texto },
   buscadorWrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -955,12 +910,12 @@ const s = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     fontSize: 15,
-    color: '#333',
+    color: colors.texto,
   },
   buscadorIcono: { marginLeft: 8 },
   buscadorLimpiar: { fontSize: 16, color: '#999', padding: 4 },
   btnNew: {
-    backgroundColor: '#E63946',
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
@@ -975,9 +930,9 @@ const s = StyleSheet.create({
     elevation: 1,
   },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  cardTitle: { fontWeight: '700', fontSize: 15, color: '#333' },
-  cardTotal: { fontWeight: '700', fontSize: 15, color: '#2DC653' },
-  cardSub: { color: '#888', fontSize: 12, marginTop: 2, marginBottom: 6 },
+  cardTitle: { fontWeight: '700', fontSize: 15, color: colors.texto },
+  cardTotal: { fontWeight: '700', fontSize: 15, color: colors.verde },
+  cardSub: { color: colors.textoSuave, fontSize: 12, marginTop: 2, marginBottom: 6 },
   cardItem: { color: '#555', fontSize: 13 },
   modal: { flex: 1, backgroundColor: '#fff', paddingBottom: BOTTOM_INSET },
   modalHeader: {
@@ -990,11 +945,11 @@ const s = StyleSheet.create({
     borderColor: '#eee',
   },
   modalTitle: { fontSize: 20, fontWeight: 'bold' },
-  close: { fontSize: 20, color: '#888' },
+  close: { fontSize: 20, color: colors.textoSuave },
   sectionLabel: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#888',
+    color: colors.textoSuave,
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 6,
@@ -1008,7 +963,7 @@ const s = StyleSheet.create({
     marginBottom: 8,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     borderRadius: 8,
     backgroundColor: '#fff',
   },
@@ -1016,7 +971,7 @@ const s = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#333',
+    color: colors.texto,
   },
   prodRow: {
     flexDirection: 'row',
@@ -1027,9 +982,9 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#f0f0f0',
   },
-  prodNombre: { fontSize: 15, color: '#333', fontWeight: '500' },
-  prodPrecio: { fontSize: 13, color: '#888' },
-  addBtn: { fontSize: 22, color: '#E63946', fontWeight: 'bold' },
+  prodNombre: { fontSize: 15, color: colors.texto, fontWeight: '500' },
+  prodPrecio: { fontSize: 13, color: colors.textoSuave },
+  addBtn: { fontSize: 22, color: colors.primary, fontWeight: 'bold' },
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1038,10 +993,10 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#f0f0f0',
   },
-  itemNombre: { flex: 1, fontSize: 14, color: '#333' },
+  itemNombre: { flex: 1, fontSize: 14, color: colors.texto },
   itemCantInput: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     borderRadius: 6,
     padding: 6,
     width: 50,
@@ -1053,10 +1008,10 @@ const s = StyleSheet.create({
   itemSubtotal: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: colors.texto,
     marginRight: 12,
   },
-  removeBtn: { color: '#E63946', fontSize: 16 },
+  removeBtn: { color: colors.primary, fontSize: 16 },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1065,10 +1020,10 @@ const s = StyleSheet.create({
     borderColor: '#eee',
   },
   totalLabel: { fontSize: 17, fontWeight: 'bold' },
-  totalValue: { fontSize: 17, fontWeight: 'bold', color: '#2DC653' },
+  totalValue: { fontSize: 17, fontWeight: 'bold', color: colors.verde },
   btnGuardar: {
     margin: 16,
-    backgroundColor: '#E63946',
+    backgroundColor: colors.primary,
     padding: 16,
     borderRadius: 10,
     alignItems: 'center',
@@ -1082,11 +1037,11 @@ const s = StyleSheet.create({
     marginBottom: 8,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     borderRadius: 8,
     backgroundColor: '#fff',
   },
-  clienteNombre: { fontSize: 14, color: '#333', fontWeight: '600' },
+  clienteNombre: { fontSize: 14, color: colors.texto, fontWeight: '600' },
   clientePlaceholder: { fontSize: 14, color: '#aaa' },
   toggle: {
     flexDirection: 'row',
@@ -1099,28 +1054,28 @@ const s = StyleSheet.create({
     padding: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     alignItems: 'center',
   },
-  toggleActive: { backgroundColor: '#E63946', borderColor: '#E63946' },
-  toggleText: { color: '#888', fontWeight: '600' },
+  toggleActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  toggleText: { color: colors.textoSuave, fontWeight: '600' },
   toggleTextActive: { color: '#fff' },
   field: { paddingHorizontal: 16, marginBottom: 8 },
   fieldLabel: {
     fontSize: 13,
-    color: '#888',
+    color: colors.textoSuave,
     marginBottom: 6,
     fontWeight: '600',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     borderRadius: 8,
     padding: 12,
     fontSize: 15,
   },
   arrow: { fontSize: 22, color: '#ccc' },
-  cardCliente: { fontSize: 12, color: '#457B9D', marginBottom: 4 },
+  cardCliente: { fontSize: 12, color: colors.azul, marginBottom: 4 },
   detalleSeccion: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1128,8 +1083,8 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#f0f0f0',
   },
-  detalleLabel: { fontSize: 13, color: '#888' },
-  detalleValor: { fontSize: 13, color: '#333', fontWeight: '600' },
+  detalleLabel: { fontSize: 13, color: colors.textoSuave },
+  detalleValor: { fontSize: 13, color: colors.texto, fontWeight: '600' },
   detalleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1138,8 +1093,8 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#f0f0f0',
   },
-  detalleRowNombre: { fontSize: 14, color: '#333', fontWeight: '600' },
-  detalleRowCant: { fontSize: 14, color: '#2DC653', fontWeight: '700' },
+  detalleRowNombre: { fontSize: 14, color: colors.texto, fontWeight: '600' },
+  detalleRowCant: { fontSize: 14, color: colors.verde, fontWeight: '700' },
   actions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -1150,46 +1105,6 @@ const s = StyleSheet.create({
     paddingTop: 8,
   },
   editBtn: { marginRight: 4 },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  confirmBox: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-  },
-  confirmTitle: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  confirmText: { fontSize: 13, color: '#888', marginBottom: 12 },
-  confirmActions: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 16,
-  },
-  confirmCancelBtn: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    alignItems: 'center',
-  },
-  confirmCancelText: { color: '#888', fontWeight: '600' },
-  confirmDeleteBtn: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#E63946',
-    alignItems: 'center',
-  },
-  confirmDeleteText: { color: '#fff', fontWeight: '600' },
 });
 
 export default VentasScreen;

@@ -7,15 +7,14 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import client from '../api/client';
 import FiltroPeriodo from '../components/FiltroPeriodo';
 import { avisarError } from '../utils/errores';
 import { HEADER_TOP } from '../utils/safeArea';
-
-const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
-const fmtPct = n => `${(Number(n || 0) * 100).toFixed(1)}%`;
+import { fmt, fmtPct } from '../utils/formato';
+import { paramsFecha } from '../utils/query';
+import { colors } from '../theme/colors';
 
 const LABEL_SERVICIO = { energia: 'Energía', agua: 'Agua', gas: 'Gas' };
 
@@ -29,15 +28,6 @@ const RentabilidadScreen = () => {
   // Por defecto "mes", porque los servicios públicos se facturan mensual.
   const [periodo, setPeriodo] = useState('mes');
   const [rango, setRango] = useState(null);
-
-  const paramsFecha = criterio => {
-    const params = new URLSearchParams({ periodo: criterio.periodo });
-    if (criterio.desde && criterio.hasta) {
-      params.set('desde', criterio.desde);
-      params.set('hasta', criterio.hasta);
-    }
-    return params;
-  };
 
   const cargar = useCallback(async () => {
     try {
@@ -84,7 +74,7 @@ const RentabilidadScreen = () => {
   if (loading)
     return (
       <View style={s.center}>
-        <ActivityIndicator size="large" color="#E63946" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
 
@@ -118,7 +108,7 @@ const RentabilidadScreen = () => {
               <Text
                 style={[
                   s.resumenValor,
-                  { color: totales.utilidad >= 0 ? '#2DC653' : '#E63946' },
+                  { color: totales.utilidad >= 0 ? colors.verde : colors.primary },
                 ]}
               >
                 {fmt(totales.utilidad)}
@@ -158,7 +148,7 @@ const RentabilidadScreen = () => {
                   s.cardUtilidad,
                   {
                     color:
-                      item.utilidadConVariable >= 0 ? '#2DC653' : '#E63946',
+                      item.utilidadConVariable >= 0 ? colors.verde : colors.primary,
                   },
                 ]}
               >
@@ -198,7 +188,7 @@ const RentabilidadScreen = () => {
 };
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: colors.fondo },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
@@ -209,8 +199,8 @@ const s = StyleSheet.create({
     backgroundColor: '#fff',
   },
   backBtn: { width: 60 },
-  backText: { color: '#E63946', fontSize: 15, fontWeight: '600' },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#333' },
+  backText: { color: colors.primary, fontSize: 15, fontWeight: '600' },
+  title: { fontSize: 20, fontWeight: 'bold', color: colors.texto },
   resumen: {
     backgroundColor: '#fff',
     paddingVertical: 14,
@@ -220,16 +210,16 @@ const s = StyleSheet.create({
   },
   resumenRow: { flexDirection: 'row', justifyContent: 'space-between' },
   resumenItem: { alignItems: 'center', flex: 1 },
-  resumenLabel: { fontSize: 11, color: '#888', textTransform: 'uppercase' },
+  resumenLabel: { fontSize: 11, color: colors.textoSuave, textTransform: 'uppercase' },
   resumenValor: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.texto,
     marginTop: 2,
   },
   indirectosTexto: {
     fontSize: 11,
-    color: '#888',
+    color: colors.textoSuave,
     marginTop: 10,
     textAlign: 'center',
   },
@@ -254,12 +244,12 @@ const s = StyleSheet.create({
   cardTitle: {
     fontWeight: '700',
     fontSize: 15,
-    color: '#333',
+    color: colors.texto,
     flex: 1,
     marginRight: 8,
   },
   cardUtilidad: { fontSize: 15, fontWeight: '700' },
-  cardSub: { color: '#888', fontSize: 12, marginTop: 4 },
+  cardSub: { color: colors.textoSuave, fontSize: 12, marginTop: 4 },
   costosBox: {
     marginTop: 10,
     borderTopWidth: 1,
@@ -271,9 +261,9 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 3,
   },
-  costoLabel: { fontSize: 12, color: '#888' },
-  costoValor: { fontSize: 12, color: '#333', fontWeight: '600' },
-  margen: { fontSize: 12, color: '#457B9D', fontWeight: '600', marginTop: 8 },
+  costoLabel: { fontSize: 12, color: colors.textoSuave },
+  costoValor: { fontSize: 12, color: colors.texto, fontWeight: '600' },
+  margen: { fontSize: 12, color: colors.azul, fontWeight: '600', marginTop: 8 },
 });
 
 export default RentabilidadScreen;

@@ -7,6 +7,7 @@ import {
   Share,
   StyleSheet,
 } from 'react-native';
+import { colors } from '../theme/colors';
 
 const CredencialesModal = ({
   visible,
@@ -67,26 +68,26 @@ const s = StyleSheet.create({
     padding: 24,
   },
   modal: { backgroundColor: '#fff', borderRadius: 12, padding: 20 },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 8 },
-  hint: { fontSize: 12, color: '#888', marginBottom: 8 },
+  title: { fontSize: 20, fontWeight: 'bold', color: colors.texto, marginBottom: 8 },
+  hint: { fontSize: 12, color: colors.textoSuave, marginBottom: 8 },
   label: {
     fontSize: 12,
-    color: '#888',
+    color: colors.textoSuave,
     fontWeight: '600',
     textTransform: 'uppercase',
     marginTop: 12,
     marginBottom: 6,
   },
-  valor: { fontSize: 16, color: '#333' },
+  valor: { fontSize: 16, color: colors.texto },
   password: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#E63946',
+    color: colors.primary,
     letterSpacing: 1,
     fontFamily: 'monospace',
   },
   btn: {
-    backgroundColor: '#E63946',
+    backgroundColor: colors.primary,
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',
@@ -95,13 +96,13 @@ const s = StyleSheet.create({
   btnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   btnSec: {
     borderWidth: 1,
-    borderColor: '#E63946',
+    borderColor: colors.primary,
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 12,
   },
-  btnSecText: { color: '#E63946', fontSize: 15, fontWeight: '600' },
+  btnSecText: { color: colors.primary, fontSize: 15, fontWeight: '600' },
 });
 
 export default CredencialesModal;

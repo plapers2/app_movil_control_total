@@ -19,8 +19,8 @@ import { avisarError } from '../utils/errores';
 import KeyboardView from '../components/KeyboardView';
 import { aDinero } from '../utils/validar';
 import { HEADER_TOP, BOTTOM_INSET } from '../utils/safeArea';
-
-const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
+import { fmt } from '../utils/formato';
+import { colors } from '../theme/colors';
 
 const DeudasScreen = () => {
   const navigation = useNavigation();
@@ -116,7 +116,7 @@ const DeudasScreen = () => {
   if (loading)
     return (
       <View style={s.center}>
-        <ActivityIndicator size="large" color="#E63946" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
 
@@ -250,7 +250,7 @@ const DeudasScreen = () => {
 };
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: colors.fondo },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
@@ -261,8 +261,8 @@ const s = StyleSheet.create({
     backgroundColor: '#fff',
   },
   backBtn: { width: 60 },
-  backText: { color: '#E63946', fontSize: 15, fontWeight: '600' },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#333' },
+  backText: { color: colors.primary, fontSize: 15, fontWeight: '600' },
+  title: { fontSize: 20, fontWeight: 'bold', color: colors.texto },
   resumen: {
     backgroundColor: '#fff',
     padding: 16,
@@ -270,11 +270,11 @@ const s = StyleSheet.create({
     borderColor: '#eee',
     alignItems: 'center',
   },
-  resumenLabel: { fontSize: 13, color: '#888', fontWeight: '600' },
+  resumenLabel: { fontSize: 13, color: colors.textoSuave, fontWeight: '600' },
   resumenValor: {
     fontSize: 26,
     fontWeight: 'bold',
-    color: '#E63946',
+    color: colors.primary,
     marginTop: 4,
   },
   resumenSub: { fontSize: 12, color: '#aaa', marginTop: 2 },
@@ -292,9 +292,9 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 4,
   },
-  cardTitle: { fontWeight: '700', fontSize: 15, color: '#333' },
-  cardSaldo: { fontWeight: '700', fontSize: 15, color: '#E63946' },
-  cardSub: { color: '#888', fontSize: 12, marginTop: 2 },
+  cardTitle: { fontWeight: '700', fontSize: 15, color: colors.texto },
+  cardSaldo: { fontWeight: '700', fontSize: 15, color: colors.primary },
+  cardSub: { color: colors.textoSuave, fontSize: 12, marginTop: 2 },
   cardMeta: { fontSize: 12, color: '#666' },
   badge: {
     alignSelf: 'flex-start',
@@ -317,26 +317,26 @@ const s = StyleSheet.create({
     borderColor: '#eee',
   },
   modalTitle: { fontSize: 20, fontWeight: 'bold' },
-  close: { fontSize: 20, color: '#888' },
-  deudaInfo: { fontSize: 16, fontWeight: '700', color: '#333' },
-  deudaSub: { fontSize: 13, color: '#888', marginTop: 4, marginBottom: 16 },
+  close: { fontSize: 20, color: colors.textoSuave },
+  deudaInfo: { fontSize: 16, fontWeight: '700', color: colors.texto },
+  deudaSub: { fontSize: 13, color: colors.textoSuave, marginTop: 4, marginBottom: 16 },
   fieldLabel: {
     fontSize: 13,
-    color: '#888',
+    color: colors.textoSuave,
     marginBottom: 6,
     marginTop: 12,
     fontWeight: '600',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     borderRadius: 8,
     padding: 12,
     fontSize: 15,
   },
   btnGuardar: {
     marginTop: 24,
-    backgroundColor: '#E63946',
+    backgroundColor: colors.primary,
     padding: 16,
     borderRadius: 10,
     alignItems: 'center',

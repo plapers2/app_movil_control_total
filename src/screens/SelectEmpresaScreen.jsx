@@ -19,6 +19,7 @@ import {
 import { avisarError } from '../utils/errores';
 import { HEADER_TOP } from '../utils/safeArea';
 import { cerrarSesion } from '../utils/sesion';
+import { colors } from '../theme/colors';
 
 const SelectEmpresaScreen = ({ navigation, route }) => {
   const [empresas, setEmpresas] = useState(route.params?.empresas || []);
@@ -95,7 +96,7 @@ const SelectEmpresaScreen = ({ navigation, route }) => {
         )}
         ListEmptyComponent={
           cargando ? (
-            <ActivityIndicator color="#E63946" style={{ marginTop: 20 }} />
+            <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
           ) : (
             <Text style={{ color: '#aaa', textAlign: 'center', marginTop: 20 }}>
               No perteneces a ninguna empresa activa.
@@ -108,26 +109,26 @@ const SelectEmpresaScreen = ({ navigation, route }) => {
 };
 
 const s = StyleSheet.create({
-  volver: { color: '#E63946', fontSize: 16, marginBottom: 12 },
+  volver: { color: colors.primary, fontSize: 16, marginBottom: 12 },
   salir: { alignItems: 'center', marginTop: 12, padding: 12 },
-  salirText: { color: '#888', fontSize: 15 },
+  salirText: { color: colors.textoSuave, fontSize: 15 },
   container: {
     flex: 1,
     padding: 24,
     backgroundColor: '#fff',
     paddingTop: HEADER_TOP + 8,
   },
-  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 24, color: '#333' },
+  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 24, color: colors.texto },
   card: {
     padding: 16,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     borderRadius: 8,
     marginBottom: 12,
   },
-  name: { fontSize: 18, fontWeight: '600', color: '#333' },
-  rol: { fontSize: 14, color: '#888', marginTop: 4 },
-  cardSuper: { borderColor: '#E63946', backgroundColor: '#FFF5F5' },
+  name: { fontSize: 18, fontWeight: '600', color: colors.texto },
+  rol: { fontSize: 14, color: colors.textoSuave, marginTop: 4 },
+  cardSuper: { borderColor: colors.primary, backgroundColor: '#FFF5F5' },
 });
 
 export default SelectEmpresaScreen;

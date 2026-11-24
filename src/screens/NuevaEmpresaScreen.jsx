@@ -12,6 +12,7 @@ import client from '../api/client';
 import CredencialesModal from '../components/CredencialesModal';
 import KeyboardView from '../components/KeyboardView';
 import { HEADER_TOP } from '../utils/safeArea';
+import { colors } from '../theme/colors';
 
 const NuevaEmpresaScreen = ({ navigation }) => {
   const [nombre, setNombre] = useState('');
@@ -213,7 +214,7 @@ const NuevaEmpresaScreen = ({ navigation }) => {
 };
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: colors.fondo },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -224,11 +225,11 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#eee',
   },
-  back: { color: '#E63946', fontSize: 16, fontWeight: '600' },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#333' },
+  back: { color: colors.primary, fontSize: 16, fontWeight: '600' },
+  title: { fontSize: 20, fontWeight: 'bold', color: colors.texto },
   label: {
     fontSize: 12,
-    color: '#888',
+    color: colors.textoSuave,
     fontWeight: '600',
     textTransform: 'uppercase',
     marginTop: 12,
@@ -236,14 +237,14 @@ const s = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     borderRadius: 8,
     padding: 12,
     marginBottom: 10,
     fontSize: 16,
     backgroundColor: '#fff',
   },
-  hint: { fontSize: 12, color: '#888', marginBottom: 12 },
+  hint: { fontSize: 12, color: colors.textoSuave, marginBottom: 12 },
   chips: { flexDirection: 'row', marginBottom: 12 },
   chip: {
     paddingHorizontal: 14,
@@ -251,10 +252,10 @@ const s = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     marginRight: 8,
   },
-  chipOn: { backgroundColor: '#E63946', borderColor: '#E63946' },
+  chipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { color: '#555', fontWeight: '600' },
   chipTextOn: { color: '#fff' },
   user: {
@@ -265,11 +266,11 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#eee',
   },
-  userOn: { borderColor: '#E63946', backgroundColor: '#FFF5F5' },
-  userName: { fontSize: 15, fontWeight: '600', color: '#333' },
-  userEmail: { fontSize: 13, color: '#888' },
+  userOn: { borderColor: colors.primary, backgroundColor: '#FFF5F5' },
+  userName: { fontSize: 15, fontWeight: '600', color: colors.texto },
+  userEmail: { fontSize: 13, color: colors.textoSuave },
   btn: {
-    backgroundColor: '#E63946',
+    backgroundColor: colors.primary,
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',

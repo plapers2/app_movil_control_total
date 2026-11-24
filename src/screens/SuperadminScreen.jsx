@@ -14,6 +14,7 @@ import client from '../api/client';
 import CredencialesModal from '../components/CredencialesModal';
 import { HEADER_TOP } from '../utils/safeArea';
 import { cerrarSesion } from '../utils/sesion';
+import { colors } from '../theme/colors';
 
 const SuperadminScreen = ({ navigation }) => {
   const [empresas, setEmpresas] = useState([]);
@@ -77,7 +78,7 @@ const SuperadminScreen = ({ navigation }) => {
   if (loading)
     return (
       <View style={s.center}>
-        <ActivityIndicator size="large" color="#E63946" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
 
@@ -120,7 +121,7 @@ const SuperadminScreen = ({ navigation }) => {
               setRefreshing(true);
               cargar();
             }}
-            colors={['#E63946']}
+            colors={[colors.primary]}
           />
         }
         ListEmptyComponent={<Text style={s.empty}>Sin empresas creadas</Text>}
@@ -181,7 +182,7 @@ const SuperadminScreen = ({ navigation }) => {
 };
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: colors.fondo },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
@@ -193,8 +194,8 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#eee',
   },
-  back: { color: '#E63946', fontSize: 16, fontWeight: '600' },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#333' },
+  back: { color: colors.primary, fontSize: 16, fontWeight: '600' },
+  title: { fontSize: 20, fontWeight: 'bold', color: colors.texto },
   empty: { textAlign: 'center', color: '#aaa', marginTop: 40 },
   card: {
     backgroundColor: '#fff',
@@ -208,32 +209,32 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  nombre: { fontSize: 16, fontWeight: '700', color: '#333', flex: 1 },
+  nombre: { fontSize: 16, fontWeight: '700', color: colors.texto, flex: 1 },
   badge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12 },
   badgeOn: { backgroundColor: '#E6F7EB' },
   badgeOff: { backgroundColor: '#EEE' },
-  badgeText: { fontSize: 12, fontWeight: '600', color: '#333' },
-  desc: { fontSize: 13, color: '#888', marginTop: 4 },
+  badgeText: { fontSize: 12, fontWeight: '600', color: colors.texto },
+  desc: { fontSize: 13, color: colors.textoSuave, marginTop: 4 },
   adminLabel: {
     fontSize: 11,
-    color: '#888',
+    color: colors.textoSuave,
     fontWeight: '600',
     textTransform: 'uppercase',
     marginTop: 10,
   },
-  admin: { fontSize: 14, color: '#333', marginTop: 2 },
-  sinAdmin: { fontSize: 14, color: '#E63946', marginTop: 2 },
+  admin: { fontSize: 14, color: colors.texto, marginTop: 2 },
+  sinAdmin: { fontSize: 14, color: colors.primary, marginTop: 2 },
   adminRow: { marginTop: 4 },
   pendiente: { marginTop: 4 },
   pendienteText: { fontSize: 12, color: '#B45309' },
   verClave: {
     fontSize: 13,
-    color: '#E63946',
+    color: colors.primary,
     fontWeight: '600',
     marginTop: 2,
   },
   btnNueva: {
-    backgroundColor: '#E63946',
+    backgroundColor: colors.primary,
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',

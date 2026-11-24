@@ -14,6 +14,8 @@ import FiltroPeriodo from '../components/FiltroPeriodo';
 import { avisarError } from '../utils/errores';
 import { HEADER_TOP } from '../utils/safeArea';
 import { abrirMenuCuenta } from '../utils/sesion';
+import { fmt } from '../utils/formato';
+import { colors } from '../theme/colors';
 
 const Card = ({ label, value, color }) => (
   <View style={[s.card, { borderLeftColor: color }]}>
@@ -88,8 +90,6 @@ const HomeScreen = () => {
     cargarResumen(criterio).finally(() => setLoading(false));
   };
 
-  const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
-
   return (
     <ScrollView style={s.container}>
       <View style={s.header}>
@@ -108,7 +108,7 @@ const HomeScreen = () => {
         style={[
           s.balanceCard,
           {
-            borderLeftColor: resumen?.balanceTotal >= 0 ? '#457B9D' : '#E63946',
+            borderLeftColor: resumen?.balanceTotal >= 0 ? colors.azul : colors.primary,
           },
         ]}
         onPress={() => navigation.navigate('Caja')}
@@ -117,7 +117,7 @@ const HomeScreen = () => {
         <Text
           style={[
             s.balanceValor,
-            { color: resumen?.balanceTotal >= 0 ? '#457B9D' : '#E63946' },
+            { color: resumen?.balanceTotal >= 0 ? colors.azul : colors.primary },
           ]}
         >
           {loading ? '···' : fmt(resumen?.balanceTotal)}
@@ -140,20 +140,20 @@ const HomeScreen = () => {
       <FiltroPeriodo periodo={periodo} onChange={cambiarPeriodo} />
 
       {loading ? (
-        <ActivityIndicator color="#E63946" style={{ marginTop: 20 }} />
+        <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
       ) : (
         <>
           <View style={s.cards}>
             <Card
               label="Ingresos"
               value={fmt(resumen?.ingresos)}
-              color="#2DC653"
+              color={colors.verde}
             />
-            <Card label="Gastos" value={fmt(resumen?.gastos)} color="#E63946" />
+            <Card label="Gastos" value={fmt(resumen?.gastos)} color={colors.primary} />
             <Card
               label="Balance"
               value={fmt(resumen?.balance)}
-              color="#457B9D"
+              color={colors.azul}
             />
           </View>
 
@@ -209,7 +209,7 @@ const HomeScreen = () => {
 };
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: colors.fondo },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -218,14 +218,14 @@ const s = StyleSheet.create({
     paddingTop: HEADER_TOP,
     backgroundColor: '#fff',
   },
-  greeting: { fontSize: 14, color: '#888' },
-  empresa: { fontSize: 20, fontWeight: 'bold', color: '#333' },
+  greeting: { fontSize: 14, color: colors.textoSuave },
+  empresa: { fontSize: 20, fontWeight: 'bold', color: colors.texto },
   logoutBtn: { padding: 8, backgroundColor: '#f0f0f0', borderRadius: 8 },
-  logoutText: { color: '#E63946', fontWeight: '600' },
+  logoutText: { color: colors.primary, fontWeight: '600' },
   section: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#333',
+    color: colors.texto,
     marginHorizontal: 16,
     marginTop: 20,
     marginBottom: 10,
@@ -241,7 +241,7 @@ const s = StyleSheet.create({
   },
   balanceLabel: {
     fontSize: 12,
-    color: '#888',
+    color: colors.textoSuave,
     fontWeight: '600',
     textTransform: 'uppercase',
   },
@@ -257,12 +257,12 @@ const s = StyleSheet.create({
     padding: 16,
     borderRadius: 10,
     borderLeftWidth: 4,
-    borderLeftColor: '#E63946',
+    borderLeftColor: colors.primary,
     elevation: 1,
   },
-  deudaLabel: { fontSize: 14, fontWeight: '700', color: '#333' },
-  deudaSub: { fontSize: 12, color: '#888', marginTop: 2 },
-  deudaValor: { fontSize: 18, fontWeight: 'bold', color: '#E63946' },
+  deudaLabel: { fontSize: 14, fontWeight: '700', color: colors.texto },
+  deudaSub: { fontSize: 12, color: colors.textoSuave, marginTop: 2 },
+  deudaValor: { fontSize: 18, fontWeight: 'bold', color: colors.primary },
   card: {
     flex: 1,
     backgroundColor: '#fff',
@@ -271,8 +271,8 @@ const s = StyleSheet.create({
     borderLeftWidth: 4,
     elevation: 1,
   },
-  cardValue: { fontSize: 16, fontWeight: 'bold', color: '#333' },
-  cardLabel: { fontSize: 12, color: '#888', marginTop: 4 },
+  cardValue: { fontSize: 16, fontWeight: 'bold', color: colors.texto },
+  cardLabel: { fontSize: 12, color: colors.textoSuave, marginTop: 4 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', padding: 12, gap: 10 },
   gridItem: {
     width: '47%',
@@ -282,7 +282,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     elevation: 1,
   },
-  gridText: { fontSize: 15, fontWeight: '600', color: '#333' },
+  gridText: { fontSize: 15, fontWeight: '600', color: colors.texto },
 });
 
 export default HomeScreen;

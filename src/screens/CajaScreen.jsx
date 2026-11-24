@@ -11,8 +11,6 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import client from '../api/client';
 import { getFechaHoyLocal, fmtFecha } from '../utils/date';
@@ -24,8 +22,10 @@ import { avisarError } from '../utils/errores';
 import KeyboardView from '../components/KeyboardView';
 import { aNumero, aDinero } from '../utils/validar';
 import { HEADER_TOP, BOTTOM_INSET } from '../utils/safeArea';
-
-const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
+import { fmt } from '../utils/formato';
+import { paramsFecha } from '../utils/query';
+import ModalAnular from '../components/ModalAnular';
+import { colors } from '../theme/colors';
 
 const CajaScreen = () => {
   const [movimientos, setMovimientos] = useState([]);
@@ -70,16 +70,6 @@ const CajaScreen = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [loadingMas, setLoadingMas] = useState(false);
   const [refrescando, setRefrescando] = useState(false);
-
-  // Arma los query params de fecha (periodo, o desde/hasta si es rango personalizado)
-  const paramsFecha = criterio => {
-    const params = new URLSearchParams({ periodo: criterio.periodo });
-    if (criterio.desde && criterio.hasta) {
-      params.set('desde', criterio.desde);
-      params.set('hasta', criterio.hasta);
-    }
-    return params;
-  };
 
   const reqId = useRef(0);
 
@@ -317,7 +307,7 @@ const CajaScreen = () => {
   if (loading)
     return (
       <View style={s.center}>
-        <ActivityIndicator size="large" color="#E63946" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
 
@@ -336,7 +326,7 @@ const CajaScreen = () => {
             s.balanceActualCard,
             {
               borderLeftColor:
-                resumen.balanceTotal >= 0 ? '#457B9D' : '#E63946',
+                resumen.balanceTotal >= 0 ? colors.azul : colors.primary,
             },
           ]}
           activeOpacity={1}
@@ -347,7 +337,7 @@ const CajaScreen = () => {
           <Text
             style={[
               s.balanceActualValor,
-              { color: resumen.balanceTotal >= 0 ? '#457B9D' : '#E63946' },
+              { color: resumen.balanceTotal >= 0 ? colors.azul : colors.primary },
             ]}
           >
             {fmt(resumen.balanceTotal)}
@@ -369,11 +359,11 @@ const CajaScreen = () => {
               : 'Rango seleccionado'}
           </Text>
           <View style={s.resumen}>
-            <View style={[s.resCard, { borderLeftColor: '#2DC653' }]}>
+            <View style={[s.resCard, { borderLeftColor: colors.verde }]}>
               <Text style={s.resVal}>{fmt(resumen.ingresos)}</Text>
               <Text style={s.resLabel}>Ingresos</Text>
             </View>
-            <View style={[s.resCard, { borderLeftColor: '#E63946' }]}>
+            <View style={[s.resCard, { borderLeftColor: colors.primary }]}>
               <Text style={s.resVal}>{fmt(resumen.gastos)}</Text>
               <Text style={s.resLabel}>Gastos</Text>
             </View>
@@ -381,14 +371,14 @@ const CajaScreen = () => {
               style={[
                 s.resCard,
                 {
-                  borderLeftColor: resumen.balance >= 0 ? '#457B9D' : '#E63946',
+                  borderLeftColor: resumen.balance >= 0 ? colors.azul : colors.primary,
                 },
               ]}
             >
               <Text
                 style={[
                   s.resVal,
-                  { color: resumen.balance >= 0 ? '#457B9D' : '#E63946' },
+                  { color: resumen.balance >= 0 ? colors.azul : colors.primary },
                 ]}
               >
                 {fmt(resumen.balance)}
@@ -403,7 +393,7 @@ const CajaScreen = () => {
       {refrescando && (
         <ActivityIndicator
           size="small"
-          color="#E63946"
+          color={colors.primary}
           style={{ marginBottom: 8 }}
         />
       )}
@@ -725,7 +715,7 @@ const CajaScreen = () => {
                 <Text
                   style={[
                     s.detalleLabel,
-                    { fontSize: 16, fontWeight: 'bold', color: '#333' },
+                    { fontSize: 16, fontWeight: 'bold', color: colors.texto },
                   ]}
                 >
                   Monto
@@ -880,56 +870,24 @@ const CajaScreen = () => {
         </View>
       </Modal>
 
-      <Modal
+      <ModalAnular
         visible={modalAnular}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setModalAnular(false)}
-      >
-        <KeyboardAvoidingView
-          style={s.overlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <View style={s.confirmBox}>
-            <Text style={s.confirmTitle}>Anular movimiento</Text>
-            <Text style={s.confirmText}>
-              Este movimiento quedará marcado como anulado. Si estaba vinculado
-              a insumos, revisa el inventario manualmente.
-            </Text>
-            <Text style={s.fieldLabel}>Motivo *</Text>
-            <TextInput
-              style={[s.input, { minHeight: 70 }]}
-              value={motivoAnular}
-              onChangeText={setMotivoAnular}
-              placeholder="Ej: Monto incorrecto, registro duplicado..."
-              multiline
-            />
-            <View style={s.confirmActions}>
-              <TouchableOpacity
-                style={s.confirmCancelBtn}
-                onPress={() => setModalAnular(false)}
-              >
-                <Text style={s.confirmCancelText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[s.confirmDeleteBtn, anulando && { opacity: 0.6 }]}
-                onPress={confirmarAnular}
-                disabled={anulando}
-              >
-                <Text style={s.confirmDeleteText}>
-                  {anulando ? 'Anulando...' : 'Anular movimiento'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        titulo="Anular movimiento"
+        descripcion="Este movimiento quedará marcado como anulado. Si estaba vinculado a insumos, revisa el inventario manualmente."
+        placeholder="Ej: Monto incorrecto, registro duplicado..."
+        textoBoton="Anular movimiento"
+        motivo={motivoAnular}
+        onChangeMotivo={setMotivoAnular}
+        anulando={anulando}
+        onConfirmar={confirmarAnular}
+        onCerrar={() => setModalAnular(false)}
+      />
     </View>
   );
 };
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: colors.fondo },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
@@ -950,7 +908,7 @@ const s = StyleSheet.create({
   },
   balanceActualLabel: {
     fontSize: 11,
-    color: '#888',
+    color: colors.textoSuave,
     fontWeight: '600',
     textTransform: 'uppercase',
   },
@@ -958,14 +916,14 @@ const s = StyleSheet.create({
   resumenPeriodoLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#888',
+    color: colors.textoSuave,
     paddingHorizontal: 16,
     paddingTop: 8,
     textTransform: 'uppercase',
   },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#333' },
+  title: { fontSize: 22, fontWeight: 'bold', color: colors.texto },
   btnNew: {
-    backgroundColor: '#E63946',
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
@@ -980,12 +938,12 @@ const s = StyleSheet.create({
     borderColor: '#eee',
   },
   resCard: { flex: 1, borderLeftWidth: 3, paddingLeft: 8, paddingVertical: 4 },
-  resVal: { fontSize: 14, fontWeight: 'bold', color: '#333' },
-  resLabel: { fontSize: 11, color: '#888' },
+  resVal: { fontSize: 14, fontWeight: 'bold', color: colors.texto },
+  resLabel: { fontSize: 11, color: colors.textoSuave },
   sectionLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#888',
+    color: colors.textoSuave,
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 6,
@@ -1000,11 +958,11 @@ const s = StyleSheet.create({
     elevation: 1,
   },
   cardRow: { flexDirection: 'row', alignItems: 'center' },
-  cardDesc: { fontSize: 14, fontWeight: '600', color: '#333' },
-  cardMeta: { fontSize: 12, color: '#888', marginTop: 2 },
+  cardDesc: { fontSize: 14, fontWeight: '600', color: colors.texto },
+  cardMeta: { fontSize: 12, color: colors.textoSuave, marginTop: 2 },
   cardMonto: { fontSize: 15, fontWeight: 'bold' },
-  ingreso: { color: '#2DC653' },
-  gasto: { color: '#E63946' },
+  ingreso: { color: colors.verde },
+  gasto: { color: colors.primary },
   modal: { flex: 1, backgroundColor: '#fff', paddingBottom: BOTTOM_INSET },
   modalHeader: {
     flexDirection: 'row',
@@ -1016,10 +974,10 @@ const s = StyleSheet.create({
     borderColor: '#eee',
   },
   modalTitle: { fontSize: 20, fontWeight: 'bold' },
-  close: { fontSize: 20, color: '#888' },
+  close: { fontSize: 20, color: colors.textoSuave },
   fieldLabel: {
     fontSize: 13,
-    color: '#888',
+    color: colors.textoSuave,
     paddingHorizontal: 20,
     paddingTop: 16,
     marginBottom: 8,
@@ -1031,11 +989,11 @@ const s = StyleSheet.create({
     padding: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     alignItems: 'center',
   },
-  toggleActive: { backgroundColor: '#E63946', borderColor: '#E63946' },
-  toggleText: { color: '#888', fontWeight: '600' },
+  toggleActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  toggleText: { color: colors.textoSuave, fontWeight: '600' },
   toggleTextActive: { color: '#fff' },
   chips: {
     flexDirection: 'row',
@@ -1047,17 +1005,17 @@ const s = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
   },
-  chipActive: { backgroundColor: '#E63946', borderColor: '#E63946' },
-  chipText: { color: '#888', fontSize: 13 },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { color: colors.textoSuave, fontSize: 13 },
   chipTextActive: { color: '#fff' },
   buscadorBox: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     borderRadius: 8,
     backgroundColor: '#fff',
   },
@@ -1065,7 +1023,7 @@ const s = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#333',
+    color: colors.texto,
   },
   dropdown: {
     marginTop: 4,
@@ -1084,8 +1042,8 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#f0f0f0',
   },
-  prodNombre: { fontSize: 14, color: '#333', fontWeight: '500' },
-  prodPrecio: { fontSize: 12, color: '#888' },
+  prodNombre: { fontSize: 14, color: colors.texto, fontWeight: '500' },
+  prodPrecio: { fontSize: 12, color: colors.textoSuave },
   insumoFormRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1094,10 +1052,10 @@ const s = StyleSheet.create({
     borderColor: '#f0f0f0',
     gap: 8,
   },
-  insumoFormNombre: { flex: 1, fontSize: 14, color: '#333' },
+  insumoFormNombre: { flex: 1, fontSize: 14, color: colors.texto },
   cantInput: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     borderRadius: 6,
     padding: 8,
     width: 70,
@@ -1105,19 +1063,19 @@ const s = StyleSheet.create({
     fontSize: 14,
     backgroundColor: '#fff',
   },
-  unidad: { fontSize: 13, color: '#888', width: 35 },
-  removeBtn: { color: '#E63946', fontSize: 16 },
+  unidad: { fontSize: 13, color: colors.textoSuave, width: 35 },
+  removeBtn: { color: colors.primary, fontSize: 16 },
   field: { paddingHorizontal: 20, paddingTop: 8 },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     borderRadius: 8,
     padding: 12,
     fontSize: 15,
   },
   btnGuardar: {
     margin: 20,
-    backgroundColor: '#E63946',
+    backgroundColor: colors.primary,
     padding: 16,
     borderRadius: 10,
     alignItems: 'center',
@@ -1130,8 +1088,8 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#f0f0f0',
   },
-  detalleLabel: { fontSize: 13, color: '#888' },
-  detalleValor: { fontSize: 13, color: '#333', fontWeight: '600' },
+  detalleLabel: { fontSize: 13, color: colors.textoSuave },
+  detalleValor: { fontSize: 13, color: colors.texto, fontWeight: '600' },
   actions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -1142,46 +1100,6 @@ const s = StyleSheet.create({
     paddingTop: 8,
   },
   editBtn: { marginRight: 4 },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  confirmBox: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-  },
-  confirmTitle: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  confirmText: { fontSize: 13, color: '#888', marginBottom: 12 },
-  confirmActions: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 16,
-  },
-  confirmCancelBtn: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    alignItems: 'center',
-  },
-  confirmCancelText: { color: '#888', fontWeight: '600' },
-  confirmDeleteBtn: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#E63946',
-    alignItems: 'center',
-  },
-  confirmDeleteText: { color: '#fff', fontWeight: '600' },
 });
 
 export default CajaScreen;

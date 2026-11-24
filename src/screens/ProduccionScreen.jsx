@@ -12,8 +12,6 @@ import {
   ActivityIndicator,
   ScrollView,
   Pressable,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import client from '../api/client';
 import { getFechaHoyLocal, fmtFecha } from '../utils/date';
@@ -24,8 +22,10 @@ import { avisarError } from '../utils/errores';
 import KeyboardView from '../components/KeyboardView';
 import { aNumero, aDinero } from '../utils/validar';
 import { HEADER_TOP, BOTTOM_INSET } from '../utils/safeArea';
-
-const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
+import { fmt } from '../utils/formato';
+import { paramsFecha } from '../utils/query';
+import ModalAnular from '../components/ModalAnular';
+import { colors } from '../theme/colors';
 
 // ─── Paso 1: Seleccionar producto ────────────────────────────────────
 const PasoProducto = ({ productos, onSeleccionar }) => (
@@ -259,15 +259,6 @@ const ProduccionScreen = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [loadingMas, setLoadingMas] = useState(false);
   const [refrescando, setRefrescando] = useState(false);
-
-  const paramsFecha = criterio => {
-    const params = new URLSearchParams({ periodo: criterio.periodo });
-    if (criterio.desde && criterio.hasta) {
-      params.set('desde', criterio.desde);
-      params.set('hasta', criterio.hasta);
-    }
-    return params;
-  };
 
   const reqId = useRef(0);
 
@@ -516,7 +507,7 @@ const ProduccionScreen = () => {
   if (loading)
     return (
       <View style={s.center}>
-        <ActivityIndicator size="large" color="#E63946" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
 
@@ -532,7 +523,7 @@ const ProduccionScreen = () => {
       {refrescando && (
         <ActivityIndicator
           size="small"
-          color="#E63946"
+          color={colors.primary}
           style={{ marginBottom: 8 }}
         />
       )}
@@ -719,7 +710,7 @@ const ProduccionScreen = () => {
                   <Text
                     style={[
                       s.detalleValor,
-                      { color: '#E63946', fontWeight: '700' },
+                      { color: colors.primary, fontWeight: '700' },
                     ]}
                   >
                     {fmt(loteDetalle.costo_total)}
@@ -818,56 +809,24 @@ const ProduccionScreen = () => {
         </View>
       </Modal>
 
-      <Modal
+      <ModalAnular
         visible={modalAnular}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setModalAnular(false)}
-      >
-        <KeyboardAvoidingView
-          style={s.overlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <View style={s.confirmBox}>
-            <Text style={s.confirmTitle}>Anular lote #{loteAnulando?.id}</Text>
-            <Text style={s.confirmText}>
-              Se revertirá el stock producido y se devolverán los insumos
-              consumidos.
-            </Text>
-            <Text style={s.label}>Motivo *</Text>
-            <TextInput
-              style={[s.input, { minHeight: 70 }]}
-              value={motivoAnular}
-              onChangeText={setMotivoAnular}
-              placeholder="Ej: Error al registrar la cantidad..."
-              multiline
-            />
-            <View style={s.confirmActions}>
-              <TouchableOpacity
-                style={s.confirmCancelBtn}
-                onPress={() => setModalAnular(false)}
-              >
-                <Text style={s.confirmCancelText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[s.confirmDeleteBtn, anulando && { opacity: 0.6 }]}
-                onPress={confirmarAnular}
-                disabled={anulando}
-              >
-                <Text style={s.confirmDeleteText}>
-                  {anulando ? 'Anulando...' : 'Anular lote'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        titulo={`Anular lote #${loteAnulando?.id}`}
+        descripcion="Se revertirá el stock producido y se devolverán los insumos consumidos."
+        placeholder="Ej: Error al registrar la cantidad..."
+        textoBoton="Anular lote"
+        motivo={motivoAnular}
+        onChangeMotivo={setMotivoAnular}
+        anulando={anulando}
+        onConfirmar={confirmarAnular}
+        onCerrar={() => setModalAnular(false)}
+      />
     </View>
   );
 };
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: colors.fondo },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
@@ -877,9 +836,9 @@ const s = StyleSheet.create({
     paddingTop: HEADER_TOP,
     backgroundColor: '#fff',
   },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#333' },
+  title: { fontSize: 22, fontWeight: 'bold', color: colors.texto },
   btnNew: {
-    backgroundColor: '#E63946',
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
@@ -899,8 +858,8 @@ const s = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 6,
   },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: '#333' },
-  cardFecha: { fontSize: 13, color: '#888' },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: colors.texto },
+  cardFecha: { fontSize: 13, color: colors.textoSuave },
   cardNotas: {
     fontSize: 13,
     color: '#666',
@@ -913,10 +872,10 @@ const s = StyleSheet.create({
     marginTop: 4,
   },
   loteItemNombre: { fontSize: 13, color: '#555' },
-  loteItemCant: { fontSize: 13, color: '#457B9D', fontWeight: '600' },
+  loteItemCant: { fontSize: 13, color: colors.azul, fontWeight: '600' },
   cardCosto: {
     fontSize: 13,
-    color: '#E63946',
+    color: colors.primary,
     marginTop: 8,
     fontWeight: '600',
   },
@@ -931,7 +890,7 @@ const s = StyleSheet.create({
     borderColor: '#eee',
   },
   modalTitle: { fontSize: 20, fontWeight: 'bold' },
-  close: { fontSize: 20, color: '#888' },
+  close: { fontSize: 20, color: colors.textoSuave },
   pasos: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -946,7 +905,7 @@ const s = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#ddd',
+    backgroundColor: colors.borde,
     textAlign: 'center',
     lineHeight: 28,
     fontSize: 13,
@@ -954,19 +913,19 @@ const s = StyleSheet.create({
     color: '#999',
     overflow: 'hidden',
   },
-  pasoNumActivo: { backgroundColor: '#E63946', color: '#fff' },
+  pasoNumActivo: { backgroundColor: colors.primary, color: '#fff' },
   pasoLabel: { fontSize: 11, color: '#aaa', marginTop: 4 },
-  pasoLabelActivo: { color: '#E63946', fontWeight: '600' },
+  pasoLabelActivo: { color: colors.primary, fontWeight: '600' },
   pasoDivider: {
     flex: 1,
     height: 1,
-    backgroundColor: '#ddd',
+    backgroundColor: colors.borde,
     marginBottom: 16,
   },
   sectionLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#888',
+    color: colors.textoSuave,
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 4,
@@ -987,8 +946,8 @@ const s = StyleSheet.create({
     marginBottom: 10,
     elevation: 1,
   },
-  prodNombre: { fontSize: 15, fontWeight: '700', color: '#333' },
-  prodRecetaHint: { fontSize: 12, color: '#2DC653', marginTop: 2 },
+  prodNombre: { fontSize: 15, fontWeight: '700', color: colors.texto },
+  prodRecetaHint: { fontSize: 12, color: colors.verde, marginTop: 2 },
   prodSinReceta: { fontSize: 12, color: '#aaa', marginTop: 2 },
   arrow: { fontSize: 22, color: '#ccc', marginLeft: 8 },
   productoSeleccionado: {
@@ -1001,17 +960,17 @@ const s = StyleSheet.create({
     borderColor: '#fdd',
   },
   volverBtn: { marginRight: 12 },
-  volverText: { color: '#E63946', fontSize: 14, fontWeight: '600' },
+  volverText: { color: colors.primary, fontSize: 14, fontWeight: '600' },
   productoSeleccionadoNombre: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#333',
+    color: colors.texto,
   },
   field: { paddingHorizontal: 16, paddingTop: 16 },
-  label: { fontSize: 13, color: '#888', marginBottom: 6 },
+  label: { fontSize: 13, color: colors.textoSuave, marginBottom: 6 },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     borderRadius: 8,
     padding: 12,
     fontSize: 15,
@@ -1026,11 +985,11 @@ const s = StyleSheet.create({
     borderColor: '#f0f0f0',
     gap: 8,
   },
-  insumoNombre: { fontSize: 14, fontWeight: '600', color: '#333' },
+  insumoNombre: { fontSize: 14, fontWeight: '600', color: colors.texto },
   insumoBase: { fontSize: 11, color: '#aaa', marginTop: 2 },
   cantInput: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     borderRadius: 6,
     padding: 8,
     width: 70,
@@ -1038,7 +997,7 @@ const s = StyleSheet.create({
     fontSize: 14,
     backgroundColor: '#fff',
   },
-  unidad: { fontSize: 13, color: '#888', width: 35 },
+  unidad: { fontSize: 13, color: colors.textoSuave, width: 35 },
   sinRecetaBox: {
     margin: 16,
     padding: 14,
@@ -1050,7 +1009,7 @@ const s = StyleSheet.create({
   sinRecetaText: { fontSize: 13, color: '#7B6000' },
   btnGuardar: {
     margin: 16,
-    backgroundColor: '#E63946',
+    backgroundColor: colors.primary,
     padding: 16,
     borderRadius: 10,
     alignItems: 'center',
@@ -1063,8 +1022,8 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#f0f0f0',
   },
-  detalleLabel: { fontSize: 13, color: '#888' },
-  detalleValor: { fontSize: 13, color: '#333', fontWeight: '600' },
+  detalleLabel: { fontSize: 13, color: colors.textoSuave },
+  detalleValor: { fontSize: 13, color: colors.texto, fontWeight: '600' },
   detalleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1073,8 +1032,8 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#f0f0f0',
   },
-  detalleRowNombre: { fontSize: 14, color: '#333' },
-  detalleRowCant: { fontSize: 14, color: '#457B9D', fontWeight: '600' },
+  detalleRowNombre: { fontSize: 14, color: colors.texto },
+  detalleRowCant: { fontSize: 14, color: colors.azul, fontWeight: '600' },
   filtros: {
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -1090,16 +1049,16 @@ const s = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     backgroundColor: '#fff',
     flexShrink: 0,
     marginRight: 8,
   },
   filtroChipActivo: {
-    backgroundColor: '#E63946',
-    borderColor: '#E63946',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
-  filtroChipText: { fontSize: 13, lineHeight: 18, height: 18, color: '#888' },
+  filtroChipText: { fontSize: 13, lineHeight: 18, height: 18, color: colors.textoSuave },
   filtroChipTextActivo: { color: '#fff', fontWeight: '600' },
   actions: {
     flexDirection: 'row',
@@ -1111,46 +1070,6 @@ const s = StyleSheet.create({
     paddingTop: 8,
   },
   editBtn: { marginRight: 4 },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  confirmBox: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-  },
-  confirmTitle: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  confirmText: { fontSize: 13, color: '#888', marginBottom: 12 },
-  confirmActions: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 16,
-  },
-  confirmCancelBtn: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    alignItems: 'center',
-  },
-  confirmCancelText: { color: '#888', fontWeight: '600' },
-  confirmDeleteBtn: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#E63946',
-    alignItems: 'center',
-  },
-  confirmDeleteText: { color: '#fff', fontWeight: '600' },
 });
 
 export default ProduccionScreen;

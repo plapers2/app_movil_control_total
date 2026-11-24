@@ -5,13 +5,14 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
+import { colors } from '../theme/colors';
 
 const BotonVerMas = ({ onPress, loading, visible }) => {
   if (!visible) return null;
   return (
     <TouchableOpacity style={s.btn} onPress={onPress} disabled={loading}>
       {loading ? (
-        <ActivityIndicator color="#E63946" />
+        <ActivityIndicator color={colors.primary} />
       ) : (
         <Text style={s.text}>Ver más</Text>
       )}
@@ -26,10 +27,10 @@ const s = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E63946',
+    borderColor: colors.primary,
     alignItems: 'center',
   },
-  text: { color: '#E63946', fontWeight: '700' },
+  text: { color: colors.primary, fontWeight: '700' },
 });
 
 export default BotonVerMas;

@@ -11,6 +11,7 @@ import {
 import { CommonActions } from '@react-navigation/native';
 import client from '../api/client';
 import { saveUsuario, clearSession } from '../store/authStore';
+import { colors } from '../theme/colors';
 
 const CambiarPasswordScreen = ({ navigation }) => {
   const [actual, setActual] = useState('');
@@ -121,32 +122,32 @@ const s = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     textAlign: 'center',
-    color: '#E63946',
+    color: colors.primary,
   },
   subtitle: {
     fontSize: 14,
     textAlign: 'center',
-    color: '#888',
+    color: colors.textoSuave,
     marginTop: 8,
     marginBottom: 32,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     borderRadius: 8,
     padding: 12,
     marginBottom: 16,
     fontSize: 16,
   },
   btn: {
-    backgroundColor: '#E63946',
+    backgroundColor: colors.primary,
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',
   },
   btnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   salir: { alignItems: 'center', marginTop: 20 },
-  salirText: { color: '#888', fontSize: 15 },
+  salirText: { color: colors.textoSuave, fontSize: 15 },
 });
 
 export default CambiarPasswordScreen;

@@ -16,8 +16,8 @@ import { avisarError } from '../utils/errores';
 import FormScroll from '../components/FormScroll';
 import { aNumero } from '../utils/validar';
 import { HEADER_TOP, BOTTOM_INSET } from '../utils/safeArea';
-
-const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
+import { fmt } from '../utils/formato';
+import { colors } from '../theme/colors';
 
 const UNIDADES = [
   { label: 'Kilogramo (kg)', value: 'kg' },
@@ -159,7 +159,7 @@ const InsumosScreen = () => {
   if (loading)
     return (
       <View style={s.center}>
-        <ActivityIndicator size="large" color="#E63946" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
 
@@ -410,7 +410,7 @@ const InsumosScreen = () => {
                     fontSize: 13,
                     fontWeight: '700',
                     textTransform: 'uppercase',
-                    color: '#888',
+                    color: colors.textoSuave,
                   },
                 ]}
               >
@@ -437,7 +437,7 @@ const InsumosScreen = () => {
 };
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: colors.fondo },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
@@ -447,9 +447,9 @@ const s = StyleSheet.create({
     paddingTop: HEADER_TOP,
     backgroundColor: '#fff',
   },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#333' },
+  title: { fontSize: 22, fontWeight: 'bold', color: colors.texto },
   btnNew: {
-    backgroundColor: '#E63946',
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
@@ -463,13 +463,13 @@ const s = StyleSheet.create({
     marginBottom: 10,
     elevation: 1,
   },
-  cardAlert: { borderLeftWidth: 4, borderLeftColor: '#E63946' },
+  cardAlert: { borderLeftWidth: 4, borderLeftColor: colors.primary },
   cardRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  cardNombre: { fontSize: 16, fontWeight: '700', color: '#333', flex: 1 },
+  cardNombre: { fontSize: 16, fontWeight: '700', color: colors.texto, flex: 1 },
   actions: { flexDirection: 'row', gap: 8 },
   editBtn: { padding: 4 },
   editBtnText: { fontSize: 16 },
@@ -482,10 +482,10 @@ const s = StyleSheet.create({
     flexWrap: 'wrap',
   },
   detail: { fontSize: 13, color: '#666' },
-  ok: { color: '#2DC653', fontWeight: '600' },
-  low: { color: '#E63946', fontWeight: '600' },
+  ok: { color: colors.verde, fontWeight: '600' },
+  low: { color: colors.primary, fontWeight: '600' },
   alertText: {
-    color: '#E63946',
+    color: colors.primary,
     fontSize: 12,
     marginTop: 6,
     fontWeight: '500',
@@ -501,12 +501,12 @@ const s = StyleSheet.create({
     borderColor: '#eee',
   },
   modalTitle: { fontSize: 20, fontWeight: 'bold' },
-  close: { fontSize: 20, color: '#888' },
+  close: { fontSize: 20, color: colors.textoSuave },
   field: { paddingHorizontal: 20, paddingTop: 16 },
-  label: { fontSize: 13, color: '#888', marginBottom: 6 },
+  label: { fontSize: 13, color: colors.textoSuave, marginBottom: 6 },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     borderRadius: 8,
     padding: 12,
     fontSize: 15,
@@ -516,9 +516,9 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  selectorText: { fontSize: 15, color: '#333' },
+  selectorText: { fontSize: 15, color: colors.texto },
   selectorPlaceholder: { fontSize: 15, color: '#aaa' },
-  selectorArrow: { fontSize: 12, color: '#888' },
+  selectorArrow: { fontSize: 12, color: colors.textoSuave },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -535,7 +535,7 @@ const s = StyleSheet.create({
   dropdownTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#888',
+    color: colors.textoSuave,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
@@ -549,12 +549,12 @@ const s = StyleSheet.create({
     paddingVertical: 14,
   },
   dropdownItemSelected: { backgroundColor: '#FFF0F0' },
-  dropdownItemText: { fontSize: 15, color: '#333' },
-  dropdownItemTextSelected: { color: '#E63946', fontWeight: '600' },
-  checkmark: { color: '#E63946', fontWeight: 'bold' },
+  dropdownItemText: { fontSize: 15, color: colors.texto },
+  dropdownItemTextSelected: { color: colors.primary, fontWeight: '600' },
+  checkmark: { color: colors.primary, fontWeight: 'bold' },
   btnGuardar: {
     margin: 20,
-    backgroundColor: '#E63946',
+    backgroundColor: colors.primary,
     padding: 16,
     borderRadius: 10,
     alignItems: 'center',
@@ -568,8 +568,8 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#f0f0f0',
   },
-  detalleLabel: { fontSize: 13, color: '#888' },
-  detalleValor: { fontSize: 13, color: '#333', fontWeight: '600' },
+  detalleLabel: { fontSize: 13, color: colors.textoSuave },
+  detalleValor: { fontSize: 13, color: colors.texto, fontWeight: '600' },
 });
 
 export default InsumosScreen;

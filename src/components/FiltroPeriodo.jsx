@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { getFechaHoyLocal } from '../utils/date';
 import { esFechaValida } from '../utils/validar';
+import { colors } from '../theme/colors';
 
 const OPCIONES = [
   { key: 'dia', label: 'Día' },
@@ -84,7 +85,7 @@ const FiltroPeriodo = ({ periodo, onChange }) => {
             <TextInput
               style={s.rangoInput}
               value={desde}
-              onChangeText={setDesde}
+              onChangeText={v => setDesde(limpiarFecha(v))}
               placeholder="YYYY-MM-DD"
               placeholderTextColor="#aaa"
               maxLength={10}
@@ -96,7 +97,7 @@ const FiltroPeriodo = ({ periodo, onChange }) => {
             <TextInput
               style={s.rangoInput}
               value={hasta}
-              onChangeText={setHasta}
+              onChangeText={v => setHasta(limpiarFecha(v))}
               placeholder="YYYY-MM-DD"
               placeholderTextColor="#aaa"
               maxLength={10}
@@ -126,7 +127,7 @@ const s = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#f0f0f0',
   },
-  chipActivo: { backgroundColor: '#E63946' },
+  chipActivo: { backgroundColor: colors.primary },
   chipText: { fontSize: 13, color: '#555', fontWeight: '600' },
   chipTextActivo: { color: '#fff' },
   rangoBox: {
@@ -139,13 +140,13 @@ const s = StyleSheet.create({
   rangoCampo: { flex: 1 },
   rangoLabel: {
     fontSize: 11,
-    color: '#888',
+    color: colors.textoSuave,
     marginBottom: 4,
     fontWeight: '600',
   },
   rangoInput: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -153,7 +154,7 @@ const s = StyleSheet.create({
     backgroundColor: '#fff',
   },
   rangoBtn: {
-    backgroundColor: '#457B9D',
+    backgroundColor: colors.azul,
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 10,

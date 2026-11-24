@@ -18,8 +18,8 @@ import { avisarError } from '../utils/errores';
 import KeyboardView from '../components/KeyboardView';
 import { aNumero, aDinero } from '../utils/validar';
 import { HEADER_TOP, BOTTOM_INSET } from '../utils/safeArea';
-
-const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
+import { fmt } from '../utils/formato';
+import { colors } from '../theme/colors';
 
 const ProductosScreen = () => {
   const [productos, setProductos] = useState([]);
@@ -199,7 +199,7 @@ const ProductosScreen = () => {
   if (loading)
     return (
       <View style={s.center}>
-        <ActivityIndicator size="large" color="#E63946" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
 
@@ -505,7 +505,7 @@ const ProductosScreen = () => {
 };
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: colors.fondo },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
@@ -515,9 +515,9 @@ const s = StyleSheet.create({
     paddingTop: HEADER_TOP,
     backgroundColor: '#fff',
   },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#333' },
+  title: { fontSize: 22, fontWeight: 'bold', color: colors.texto },
   btnNew: {
-    backgroundColor: '#E63946',
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
@@ -532,17 +532,17 @@ const s = StyleSheet.create({
     elevation: 1,
   },
   cardRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  cardNombre: { fontSize: 16, fontWeight: '700', color: '#333' },
-  cardDesc: { fontSize: 13, color: '#888', marginTop: 2 },
+  cardNombre: { fontSize: 16, fontWeight: '700', color: colors.texto },
+  cardDesc: { fontSize: 13, color: colors.textoSuave, marginTop: 2 },
   cardPrecio: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#E63946',
+    color: colors.primary,
     marginTop: 4,
   },
   cardStock: {
     fontSize: 13,
-    color: '#457B9D',
+    color: colors.azul,
     fontWeight: '600',
     marginTop: 2,
   },
@@ -550,7 +550,7 @@ const s = StyleSheet.create({
     fontSize: 18,
     marginTop: 6,
   },
-  serviciosPreview: { fontSize: 11, color: '#888', marginTop: 4 },
+  serviciosPreview: { fontSize: 11, color: colors.textoSuave, marginTop: 4 },
   actions: { flexDirection: 'row', gap: 8, marginLeft: 8 },
   editBtn: { padding: 2 },
   recetaPreview: {
@@ -561,7 +561,7 @@ const s = StyleSheet.create({
     borderColor: '#f0f0f0',
     paddingTop: 8,
   },
-  recetaLabel: { fontSize: 12, color: '#888', fontWeight: '600' },
+  recetaLabel: { fontSize: 12, color: colors.textoSuave, fontWeight: '600' },
   recetaText: { fontSize: 12, color: '#555', flex: 1 },
   modal: { flex: 1, backgroundColor: '#fff', paddingBottom: BOTTOM_INSET },
   modalHeader: {
@@ -574,11 +574,11 @@ const s = StyleSheet.create({
     borderColor: '#eee',
   },
   modalTitle: { fontSize: 20, fontWeight: 'bold' },
-  close: { fontSize: 20, color: '#888' },
+  close: { fontSize: 20, color: colors.textoSuave },
   sectionLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#888',
+    color: colors.textoSuave,
     paddingHorizontal: 16,
     paddingTop: 20,
     paddingBottom: 4,
@@ -586,22 +586,22 @@ const s = StyleSheet.create({
     letterSpacing: 0.5,
   },
   field: { paddingHorizontal: 16, paddingTop: 12 },
-  label: { fontSize: 13, color: '#888', marginBottom: 6 },
+  label: { fontSize: 13, color: colors.textoSuave, marginBottom: 6 },
   servicioChips: { flexDirection: 'row', gap: 8 },
   servicioChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     backgroundColor: '#fafafa',
   },
-  servicioChipActive: { backgroundColor: '#E63946', borderColor: '#E63946' },
-  servicioChipText: { color: '#888', fontSize: 13, fontWeight: '600' },
+  servicioChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  servicioChipText: { color: colors.textoSuave, fontSize: 13, fontWeight: '600' },
   servicioChipTextActive: { color: '#fff' },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     borderRadius: 8,
     padding: 12,
     fontSize: 15,
@@ -614,7 +614,7 @@ const s = StyleSheet.create({
     paddingRight: 16,
   },
   btnAgregarInsumo: {
-    backgroundColor: '#E63946',
+    backgroundColor: colors.primary,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
@@ -625,7 +625,7 @@ const s = StyleSheet.create({
     margin: 16,
     padding: 24,
     borderWidth: 1.5,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     borderStyle: 'dashed',
     borderRadius: 10,
     alignItems: 'center',
@@ -646,11 +646,11 @@ const s = StyleSheet.create({
     borderColor: '#f0f0f0',
     gap: 8,
   },
-  ingredienteNombre: { fontSize: 14, fontWeight: '600', color: '#333' },
+  ingredienteNombre: { fontSize: 14, fontWeight: '600', color: colors.texto },
   ingredienteUnidad: { fontSize: 11, color: '#aaa', marginTop: 2 },
   cantInput: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     borderRadius: 6,
     padding: 8,
     width: 70,
@@ -658,23 +658,23 @@ const s = StyleSheet.create({
     fontSize: 14,
     backgroundColor: '#fafafa',
   },
-  cantUnidad: { fontSize: 12, color: '#888', width: 35 },
+  cantUnidad: { fontSize: 12, color: colors.textoSuave, width: 35 },
   removeBtn: { padding: 6 },
-  removeBtnText: { color: '#E63946', fontSize: 16 },
+  removeBtnText: { color: colors.primary, fontSize: 16 },
   btnAgregarMas: {
     marginHorizontal: 16,
     marginTop: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E63946',
+    borderColor: colors.primary,
     borderRadius: 8,
     alignItems: 'center',
   },
-  btnAgregarMasText: { color: '#E63946', fontSize: 14, fontWeight: '600' },
+  btnAgregarMasText: { color: colors.primary, fontSize: 14, fontWeight: '600' },
   btnGuardar: {
     margin: 16,
     marginTop: 24,
-    backgroundColor: '#E63946',
+    backgroundColor: colors.primary,
     padding: 16,
     borderRadius: 10,
     alignItems: 'center',
@@ -688,10 +688,10 @@ const s = StyleSheet.create({
     borderColor: '#f0f0f0',
   },
   insumoRowDesactivado: { opacity: 0.5 },
-  insumoNombre: { fontSize: 15, color: '#333', fontWeight: '500' },
+  insumoNombre: { fontSize: 15, color: colors.texto, fontWeight: '500' },
   insumoUnidad: { fontSize: 12, color: '#aaa', marginTop: 2 },
-  addBtn: { fontSize: 24, color: '#E63946', fontWeight: 'bold' },
-  yaAgregado: { fontSize: 13, color: '#2DC653', fontWeight: '600' },
+  addBtn: { fontSize: 24, color: colors.primary, fontWeight: 'bold' },
+  yaAgregado: { fontSize: 13, color: colors.verde, fontWeight: '600' },
 });
 
 export default ProductosScreen;

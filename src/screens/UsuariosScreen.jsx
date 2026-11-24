@@ -16,6 +16,7 @@ import FormScroll from '../components/FormScroll';
 import { avisarError } from '../utils/errores';
 import { validarEmail, validarPassword } from '../utils/validar';
 import { HEADER_TOP, BOTTOM_INSET } from '../utils/safeArea';
+import { colors } from '../theme/colors';
 
 const UsuariosScreen = ({ navigation }) => {
   const [miembros, setMiembros] = useState([]);
@@ -104,7 +105,7 @@ const UsuariosScreen = ({ navigation }) => {
   if (loading)
     return (
       <View style={s.center}>
-        <ActivityIndicator size="large" color="#E63946" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
 
@@ -226,7 +227,7 @@ const UsuariosScreen = ({ navigation }) => {
 };
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: colors.fondo },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
@@ -238,10 +239,10 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#eee',
   },
-  back: { color: '#E63946', fontSize: 16, fontWeight: '600' },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#333' },
+  back: { color: colors.primary, fontSize: 16, fontWeight: '600' },
+  title: { fontSize: 20, fontWeight: 'bold', color: colors.texto },
   btnNew: {
-    backgroundColor: '#E63946',
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
@@ -257,8 +258,8 @@ const s = StyleSheet.create({
     marginBottom: 10,
     elevation: 1,
   },
-  nombre: { fontSize: 15, fontWeight: '700', color: '#333' },
-  email: { fontSize: 13, color: '#888', marginTop: 2 },
+  nombre: { fontSize: 15, fontWeight: '700', color: colors.texto },
+  email: { fontSize: 13, color: colors.textoSuave, marginTop: 2 },
   rolBadge: {
     alignSelf: 'flex-start',
     marginTop: 6,
@@ -268,8 +269,8 @@ const s = StyleSheet.create({
   },
   rolAdmin: { backgroundColor: '#FFE8E8' },
   rolEmp: { backgroundColor: '#E8F4FF' },
-  rolText: { fontSize: 12, fontWeight: '600', color: '#333' },
-  deleteBtn: { color: '#E63946', fontSize: 20, paddingLeft: 12 },
+  rolText: { fontSize: 12, fontWeight: '600', color: colors.texto },
+  deleteBtn: { color: colors.primary, fontSize: 20, paddingLeft: 12 },
   modal: { flex: 1, backgroundColor: '#fff', paddingBottom: BOTTOM_INSET },
   modalHeader: {
     flexDirection: 'row',
@@ -281,11 +282,11 @@ const s = StyleSheet.create({
     borderColor: '#eee',
   },
   modalTitle: { fontSize: 20, fontWeight: 'bold' },
-  close: { fontSize: 20, color: '#888' },
+  close: { fontSize: 20, color: colors.textoSuave },
   field: { paddingHorizontal: 20, paddingTop: 16 },
   label: {
     fontSize: 13,
-    color: '#888',
+    color: colors.textoSuave,
     marginBottom: 6,
     fontWeight: '600',
     paddingHorizontal: 20,
@@ -293,7 +294,7 @@ const s = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     borderRadius: 8,
     padding: 12,
     fontSize: 15,
@@ -304,15 +305,15 @@ const s = StyleSheet.create({
     padding: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borde,
     alignItems: 'center',
   },
-  toggleActive: { backgroundColor: '#E63946', borderColor: '#E63946' },
-  toggleText: { color: '#888', fontWeight: '600' },
+  toggleActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  toggleText: { color: colors.textoSuave, fontWeight: '600' },
   toggleTextActive: { color: '#fff' },
   btnGuardar: {
     margin: 20,
-    backgroundColor: '#E63946',
+    backgroundColor: colors.primary,
     padding: 16,
     borderRadius: 10,
     alignItems: 'center',

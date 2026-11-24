@@ -13,6 +13,7 @@ import client from '../api/client';
 import { fmtFecha as fmtFechaBase } from '../utils/date';
 import { avisarError } from '../utils/errores';
 import { HEADER_TOP } from '../utils/safeArea';
+import { colors } from '../theme/colors';
 
 const fmtFecha = d => (d ? fmtFechaBase(d) : null);
 
@@ -66,7 +67,7 @@ const ClientesInactivosScreen = () => {
   if (loading)
     return (
       <View style={s.center}>
-        <ActivityIndicator size="large" color="#E63946" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
 
@@ -162,7 +163,7 @@ const ClientesInactivosScreen = () => {
 };
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: colors.fondo },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
@@ -173,8 +174,8 @@ const s = StyleSheet.create({
     backgroundColor: '#fff',
   },
   backBtn: { width: 60 },
-  backText: { color: '#E63946', fontSize: 15, fontWeight: '600' },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#333' },
+  backText: { color: colors.primary, fontSize: 15, fontWeight: '600' },
+  title: { fontSize: 20, fontWeight: 'bold', color: colors.texto },
   resumen: {
     backgroundColor: '#fff',
     padding: 16,
@@ -182,8 +183,8 @@ const s = StyleSheet.create({
     borderColor: '#eee',
     alignItems: 'center',
   },
-  resumenValor: { fontSize: 26, fontWeight: 'bold', color: '#E63946' },
-  resumenLabel: { fontSize: 12, color: '#888', marginTop: 2 },
+  resumenValor: { fontSize: 26, fontWeight: 'bold', color: colors.primary },
+  resumenLabel: { fontSize: 12, color: colors.textoSuave, marginTop: 2 },
   empty: {
     textAlign: 'center',
     color: '#aaa',
@@ -205,13 +206,13 @@ const s = StyleSheet.create({
   cardTitle: {
     fontWeight: '700',
     fontSize: 15,
-    color: '#333',
+    color: colors.texto,
     flex: 1,
     marginRight: 8,
   },
-  cardSub: { color: '#888', fontSize: 12, marginTop: 4 },
+  cardSub: { color: colors.textoSuave, fontSize: 12, marginTop: 4 },
   cardDias: {
-    color: '#E63946',
+    color: colors.primary,
     fontSize: 13,
     fontWeight: '700',
     marginTop: 2,
@@ -231,7 +232,7 @@ const s = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
   },
-  btnAvisoMarcar: { backgroundColor: '#E63946' },
+  btnAvisoMarcar: { backgroundColor: colors.primary },
   btnAvisoDesmarcar: { backgroundColor: '#f0f0f0' },
   btnAvisoText: { color: '#fff', fontSize: 13, fontWeight: '700' },
   btnAvisoTextDesmarcar: { color: '#555' },
