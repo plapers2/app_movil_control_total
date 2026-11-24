@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import client from '../api/client';
 import FiltroPeriodo from '../components/FiltroPeriodo';
+import { avisarError } from '../utils/errores';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 const fmtPct = n => `${(Number(n || 0) * 100).toFixed(1)}%`;
@@ -37,24 +38,20 @@ const RentabilidadScreen = () => {
     return params;
   };
 
-  const cargar = useCallback(
-    async (criterioActual = { periodo, ...(rango || {}) }) => {
-      try {
-        const qp = paramsFecha(criterioActual);
-        const res = await client.get(`/reportes/rentabilidad?${qp.toString()}`);
-        setProductos(res.data.data.productos || []);
-        setIndirectos(res.data.data.indirectos || null);
-      } catch {
-        Alert.alert('Error', 'No se pudo cargar la rentabilidad.');
-      }
-      setLoading(false);
-    },
-    [periodo, rango],
-  );
+  const cargar = useCallback(async () => {
+    try {
+      const qp = paramsFecha({ periodo, ...(rango || {}) });
+      const res = await client.get(`/reportes/rentabilidad?${qp.toString()}`);
+      setProductos(res.data.data.productos || []);
+      setIndirectos(res.data.data.indirectos || null);
+    } catch (err) {
+      avisarError(err, 'No se pudo cargar la rentabilidad.');
+    }
+    setLoading(false);
+  }, [periodo, rango]);
 
   useFocusEffect(
     useCallback(() => {
-      setLoading(true);
       cargar();
     }, [cargar]),
   );
@@ -66,8 +63,6 @@ const RentabilidadScreen = () => {
         ? { desde: criterio.desde, hasta: criterio.hasta }
         : null,
     );
-    setLoading(true);
-    cargar(criterio);
   };
 
   // Totales del periodo, sumando todos los productos vendidos
@@ -113,7 +108,9 @@ const RentabilidadScreen = () => {
             </View>
             <View style={s.resumenItem}>
               <Text style={s.resumenLabel}>Costo + variable</Text>
-              <Text style={s.resumenValor}>{fmt(totales.costoConVariable)}</Text>
+              <Text style={s.resumenValor}>
+                {fmt(totales.costoConVariable)}
+              </Text>
             </View>
             <View style={s.resumenItem}>
               <Text style={s.resumenLabel}>Utilidad</Text>
@@ -134,7 +131,9 @@ const RentabilidadScreen = () => {
               {serviciosConDato
                 .map(
                   ([s2, v]) =>
-                    `${LABEL_SERVICIO[s2]} ${fmt(v.costoUnitario)}${v.estimado ? ' (estimado)' : ''}`,
+                    `${LABEL_SERVICIO[s2]} ${fmt(v.costoUnitario)}${
+                      v.estimado ? ' (estimado)' : ''
+                    }`,
                 )
                 .join(' · ')}
             </Text>
@@ -156,7 +155,10 @@ const RentabilidadScreen = () => {
               <Text
                 style={[
                   s.cardUtilidad,
-                  { color: item.utilidadConVariable >= 0 ? '#2DC653' : '#E63946' },
+                  {
+                    color:
+                      item.utilidadConVariable >= 0 ? '#2DC653' : '#E63946',
+                  },
                 ]}
               >
                 {fmt(item.utilidadConVariable)}
@@ -218,14 +220,24 @@ const s = StyleSheet.create({
   resumenRow: { flexDirection: 'row', justifyContent: 'space-between' },
   resumenItem: { alignItems: 'center', flex: 1 },
   resumenLabel: { fontSize: 11, color: '#888', textTransform: 'uppercase' },
-  resumenValor: { fontSize: 16, fontWeight: 'bold', color: '#333', marginTop: 2 },
+  resumenValor: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 2,
+  },
   indirectosTexto: {
     fontSize: 11,
     color: '#888',
     marginTop: 10,
     textAlign: 'center',
   },
-  empty: { textAlign: 'center', color: '#aaa', marginTop: 40, paddingHorizontal: 30 },
+  empty: {
+    textAlign: 'center',
+    color: '#aaa',
+    marginTop: 40,
+    paddingHorizontal: 30,
+  },
   card: {
     backgroundColor: '#fff',
     borderRadius: 10,
@@ -238,7 +250,13 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
-  cardTitle: { fontWeight: '700', fontSize: 15, color: '#333', flex: 1, marginRight: 8 },
+  cardTitle: {
+    fontWeight: '700',
+    fontSize: 15,
+    color: '#333',
+    flex: 1,
+    marginRight: 8,
+  },
   cardUtilidad: { fontSize: 15, fontWeight: '700' },
   cardSub: { color: '#888', fontSize: 12, marginTop: 4 },
   costosBox: {

@@ -73,36 +73,55 @@ const VentasScreen = () => {
     return params;
   };
 
+  // Evita que una respuesta lenta pise a una más reciente
+  const reqId = useRef(0);
+
   const cargar = useCallback(
     async (
       criterioActual = { periodo, ...(rango || {}) },
       textoBusqueda = busqueda,
     ) => {
+      const id = ++reqId.current;
       try {
         const qp = paramsFecha(criterioActual, textoBusqueda);
-        const [v, p, c] = await Promise.all([
-          client.get(`/ventas?${qp.toString()}&page=1&limit=10`),
-          client.get('/productos?limit=1000'),
-          client.get('/clientes'),
-        ]);
+        const v = await client.get(`/ventas?${qp.toString()}&page=1&limit=10`);
+        if (id !== reqId.current) return;
         setVentas(v.data.data);
         setPage(1);
         setTotalPages(v.data.meta?.pages ?? 1);
-        setProductos(p.data.data);
-        setClientes(c.data.data);
       } catch (err) {
-        avisarError(err, 'No se pudieron cargar las ventas.');
+        if (id === reqId.current) {
+          avisarError(err, 'No se pudieron cargar las ventas.');
+        }
+      } finally {
+        if (id === reqId.current) {
+          setLoading(false);
+          setBuscando(false);
+        }
       }
-      const r = await getRol();
-      setRol(r);
-      setLoading(false);
-      setBuscando(false);
     },
     [periodo, rango, busqueda],
   );
 
+  // Productos, clientes y rol: solo al entrar a la pantalla,
+  // no en cada letra de la búsqueda.
+  const cargarCatalogos = useCallback(async () => {
+    getRol().then(setRol);
+    try {
+      const [p, c] = await Promise.all([
+        client.get('/productos'),
+        client.get('/clientes'),
+      ]);
+      setProductos(p.data.data);
+      setClientes(c.data.data);
+    } catch (err) {
+      avisarError(err, 'No se pudieron cargar productos y clientes.');
+    }
+  }, []);
+
   const verMas = async () => {
     if (page >= totalPages) return;
+    const id = reqId.current;
     try {
       setLoadingMas(true);
       const siguiente = page + 1;
@@ -110,6 +129,7 @@ const VentasScreen = () => {
       const res = await client.get(
         `/ventas?${qp.toString()}&page=${siguiente}&limit=10`,
       );
+      if (id !== reqId.current) return; // cambió el filtro mientras cargaba
       setVentas(prev => [...prev, ...res.data.data]);
       setPage(siguiente);
       setTotalPages(res.data.meta?.pages ?? 1);
@@ -138,12 +158,11 @@ const VentasScreen = () => {
         ? { desde: criterio.desde, hasta: criterio.hasta }
         : null,
     );
-    setLoading(true);
+    setBuscando(true); // muestra el spinner pequeño del buscador, sin desmontar el filtro
     cargar(criterio);
   };
 
   // Ref para que useFocusEffect siempre llame la versión más reciente de cargar()
-  // sin depender de su identidad (que cambia con cada tecla escrita en busqueda)
   const cargarRef = useRef(cargar);
   useEffect(() => {
     cargarRef.current = cargar;
@@ -151,8 +170,9 @@ const VentasScreen = () => {
 
   useFocusEffect(
     useCallback(() => {
+      cargarCatalogos();
       cargarRef.current();
-    }, []),
+    }, [cargarCatalogos]),
   );
 
   const agregarItem = producto => {

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -64,6 +64,7 @@ const CajaScreen = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loadingMas, setLoadingMas] = useState(false);
+  const [refrescando, setRefrescando] = useState(false);
 
   // Arma los query params de fecha (periodo, o desde/hasta si es rango personalizado)
   const paramsFecha = criterio => {
@@ -75,32 +76,46 @@ const CajaScreen = () => {
     return params;
   };
 
-  const cargar = useCallback(
-    async (criterioActual = { periodo, ...(rango || {}) }) => {
-      try {
-        const qp = paramsFecha(criterioActual);
-        const [m, r, i] = await Promise.all([
-          client.get(`/caja?${qp.toString()}&page=1&limit=10`),
-          client.get(`/caja/resumen?${qp.toString()}`),
-          client.get('/insumos'),
-        ]);
-        setMovimientos(m.data.data);
-        setPage(1);
-        setTotalPages(m.data.meta?.pages ?? 1);
-        setResumen(r.data.data);
-        setInsumos(i.data.data);
-      } catch (err) {
-        avisarError(err, 'No se pudo cargar la caja.');
+  const reqId = useRef(0);
+
+  const cargar = useCallback(async () => {
+    const id = ++reqId.current;
+    setRefrescando(true);
+    try {
+      const qp = paramsFecha({ periodo, ...(rango || {}) });
+      const [m, r] = await Promise.all([
+        client.get(`/caja?${qp.toString()}&page=1&limit=10`),
+        client.get(`/caja/resumen?${qp.toString()}`),
+      ]);
+      if (id !== reqId.current) return;
+      setMovimientos(m.data.data);
+      setPage(1);
+      setTotalPages(m.data.meta?.pages ?? 1);
+      setResumen(r.data.data);
+    } catch (err) {
+      if (id === reqId.current) avisarError(err, 'No se pudo cargar la caja.');
+    } finally {
+      if (id === reqId.current) {
+        setLoading(false);
+        setRefrescando(false);
       }
-      const rolGuardado = await getRol();
-      setRol(rolGuardado);
-      setLoading(false);
-    },
-    [periodo, rango],
-  );
+    }
+  }, [periodo, rango]);
+
+  // Insumos y rol: solo al entrar a la pantalla
+  const cargarExtras = useCallback(async () => {
+    getRol().then(setRol);
+    try {
+      const i = await client.get('/insumos');
+      setInsumos(i.data.data);
+    } catch (err) {
+      avisarError(err, 'No se pudieron cargar los insumos.');
+    }
+  }, []);
 
   const verMas = async () => {
     if (page >= totalPages) return;
+    const id = reqId.current;
     try {
       setLoadingMas(true);
       const siguiente = page + 1;
@@ -108,6 +123,7 @@ const CajaScreen = () => {
       const res = await client.get(
         `/caja?${qp.toString()}&page=${siguiente}&limit=10`,
       );
+      if (id !== reqId.current) return;
       setMovimientos(prev => [...prev, ...res.data.data]);
       setPage(siguiente);
       setTotalPages(res.data.meta?.pages ?? 1);
@@ -125,8 +141,6 @@ const CajaScreen = () => {
         ? { desde: criterio.desde, hasta: criterio.hasta }
         : null,
     );
-    setLoading(true);
-    cargar(criterio);
   };
 
   const agregarInsumoForm = insumo => {
@@ -154,6 +168,12 @@ const CajaScreen = () => {
         i.insumos_id === insumos_id ? { ...i, cantidad: valor } : i,
       ),
     );
+
+  useFocusEffect(
+    useCallback(() => {
+      cargarExtras();
+    }, [cargarExtras]),
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -367,6 +387,13 @@ const CajaScreen = () => {
       )}
 
       <FiltroPeriodo periodo={periodo} onChange={cambiarPeriodo} />
+      {refrescando && (
+        <ActivityIndicator
+          size="small"
+          color="#E63946"
+          style={{ marginBottom: 8 }}
+        />
+      )}
 
       <Text style={s.sectionLabel}>Movimientos</Text>
 

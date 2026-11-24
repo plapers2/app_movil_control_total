@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -253,6 +253,7 @@ const ProduccionScreen = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loadingMas, setLoadingMas] = useState(false);
+  const [refrescando, setRefrescando] = useState(false);
 
   const paramsFecha = criterio => {
     const params = new URLSearchParams({ periodo: criterio.periodo });
@@ -263,30 +264,46 @@ const ProduccionScreen = () => {
     return params;
   };
 
-  const cargar = useCallback(
-    async (criterioActual = { periodo, ...(rango || {}) }) => {
-      try {
-        const qp = paramsFecha(criterioActual);
-        const [l, p] = await Promise.all([
-          client.get(`/produccion?${qp.toString()}&page=1&limit=10`),
-          client.get('/productos'),
-        ]);
-        setLotes(l.data.data);
-        setPage(1);
-        setTotalPages(l.data.meta?.pages ?? 1);
-        setProductos(p.data.data);
-      } catch (err) {
+  const reqId = useRef(0);
+
+  const cargar = useCallback(async () => {
+    const id = ++reqId.current;
+    setRefrescando(true);
+    try {
+      const qp = paramsFecha({ periodo, ...(rango || {}) });
+      const l = await client.get(
+        `/produccion?${qp.toString()}&page=1&limit=10`,
+      );
+      if (id !== reqId.current) return;
+      setLotes(l.data.data);
+      setPage(1);
+      setTotalPages(l.data.meta?.pages ?? 1);
+    } catch (err) {
+      if (id === reqId.current) {
         avisarError(err, 'No se pudo cargar la producción.');
       }
-      const r = await getRol();
-      setRol(r);
-      setLoading(false);
-    },
-    [periodo, rango],
-  );
+    } finally {
+      if (id === reqId.current) {
+        setLoading(false);
+        setRefrescando(false);
+      }
+    }
+  }, [periodo, rango]);
+
+  // Productos y rol: solo al entrar a la pantalla
+  const cargarProductos = useCallback(async () => {
+    getRol().then(setRol);
+    try {
+      const p = await client.get('/productos');
+      setProductos(p.data.data);
+    } catch (err) {
+      avisarError(err, 'No se pudieron cargar los productos.');
+    }
+  }, []);
 
   const verMas = async () => {
     if (page >= totalPages) return;
+    const id = reqId.current;
     try {
       setLoadingMas(true);
       const siguiente = page + 1;
@@ -294,6 +311,7 @@ const ProduccionScreen = () => {
       const res = await client.get(
         `/produccion?${qp.toString()}&page=${siguiente}&limit=10`,
       );
+      if (id !== reqId.current) return;
       setLotes(prev => [...prev, ...res.data.data]);
       setPage(siguiente);
       setTotalPages(res.data.meta?.pages ?? 1);
@@ -311,8 +329,7 @@ const ProduccionScreen = () => {
         ? { desde: criterio.desde, hasta: criterio.hasta }
         : null,
     );
-    setLoading(true);
-    cargar(criterio);
+    setFiltroProducto(null);
   };
 
   const productosEnLotes = productos.filter(p =>
@@ -326,6 +343,12 @@ const ProduccionScreen = () => {
         l.lotes_produccion_items?.some(i => i.productos_id === filtroProducto),
       )
     : lotes;
+
+  useFocusEffect(
+    useCallback(() => {
+      cargarProductos();
+    }, [cargarProductos]),
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -501,6 +524,13 @@ const ProduccionScreen = () => {
         </TouchableOpacity>
       </View>
       <FiltroPeriodo periodo={periodo} onChange={cambiarPeriodo} />
+      {refrescando && (
+        <ActivityIndicator
+          size="small"
+          color="#E63946"
+          style={{ marginBottom: 8 }}
+        />
+      )}
       {productosEnLotes.length > 0 && (
         <FlatList
           data={[{ id: '__todos__', nombre: 'Todos' }, ...productosEnLotes]}
@@ -570,7 +600,7 @@ const ProduccionScreen = () => {
           <BotonVerMas
             onPress={verMas}
             loading={loadingMas}
-            visible={!filtroProducto && page < totalPages}
+            visible={page < totalPages}
           />
         }
       />
