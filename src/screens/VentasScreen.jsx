@@ -432,7 +432,11 @@ const VentasScreen = () => {
         </TouchableOpacity>
       </View>
 
-      <FiltroPeriodo periodo={periodo} onChange={cambiarPeriodo} />
+      <FiltroPeriodo
+        periodo={periodo}
+        onChange={cambiarPeriodo}
+        modulo="ventas"
+      />
 
       <View style={s.buscadorWrap}>
         <TextInput
@@ -652,8 +656,7 @@ const VentasScreen = () => {
 
             {items.length > 0 && valorDomicilio > 0 && (
               <Text style={s.cardSub}>
-                Productos {fmt(subtotalItems)} + domicilio{' '}
-                {fmt(valorDomicilio)}
+                Productos {fmt(subtotalItems)} + domicilio {fmt(valorDomicilio)}
               </Text>
             )}
             {items.length > 0 && (

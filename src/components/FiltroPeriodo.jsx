@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import client from '../api/client';
 import { getFechaHoyLocal, fmtFecha } from '../utils/date';
 import CalendarioRango from './CalendarioRango';
 import { colors } from '../theme/colors';
@@ -16,19 +17,36 @@ const OPCIONES = [
 // Rentabilidad.
 // - dia/semana/mes: rangos ya calculados por el backend.
 // - total: todo lo registrado en el sistema, sin filtro de fecha.
-// - rango: el usuario elige desde/hasta en un calendario.
+// - rango: el usuario elige desde/hasta en un calendario que deja en gris los
+//   días futuros y los anteriores al primer registro.
+//
+// modulo (opcional): 'ventas', 'caja' o 'produccion'. Indica de cuál módulo se
+// toma el primer registro; sin él se usa el más antiguo de los tres.
 //
 // onChange recibe siempre un objeto: { periodo } o { periodo: 'rango', desde, hasta }.
-const FiltroPeriodo = ({ periodo, onChange }) => {
+const FiltroPeriodo = ({ periodo, onChange, modulo }) => {
   const [mostrarRango, setMostrarRango] = useState(periodo === 'rango');
   const [calendario, setCalendario] = useState(false);
   const [desde, setDesde] = useState(getFechaHoyLocal());
   const [hasta, setHasta] = useState(getFechaHoyLocal());
+  const [minFecha, setMinFecha] = useState(null);
+
+  // El primer registro se consulta al abrir el calendario, así siempre está
+  // al día. Si la consulta falla, el calendario simplemente no limita.
+  const abrirCalendario = () => {
+    setCalendario(true);
+    client
+      .get('/reportes/primer-registro', {
+        params: modulo ? { modulo } : undefined,
+      })
+      .then(res => setMinFecha(res.data.data?.fecha ?? null))
+      .catch(() => {});
+  };
 
   const seleccionar = key => {
     if (key === 'rango') {
       setMostrarRango(true);
-      setCalendario(true);
+      abrirCalendario();
       return;
     }
     setMostrarRango(false);
@@ -71,10 +89,7 @@ const FiltroPeriodo = ({ periodo, onChange }) => {
       </View>
 
       {mostrarRango && (
-        <TouchableOpacity
-          style={s.rangoBox}
-          onPress={() => setCalendario(true)}
-        >
+        <TouchableOpacity style={s.rangoBox} onPress={abrirCalendario}>
           <Text style={s.rangoIcono}>📅</Text>
           <Text style={s.rangoTexto}>
             {fmtFecha(desde)} → {fmtFecha(hasta)}
@@ -87,6 +102,7 @@ const FiltroPeriodo = ({ periodo, onChange }) => {
         visible={calendario}
         desde={desde}
         hasta={hasta}
+        minFecha={minFecha}
         onApply={aplicarRango}
         onClose={cerrarCalendario}
       />

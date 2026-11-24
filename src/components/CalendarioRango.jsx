@@ -29,9 +29,17 @@ const DIAS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
 // Calendario para elegir un rango de fechas.
 // Toca un día para el inicio y otro para el final (el mismo día dos veces
-// sirve para un solo día). No deja elegir días futuros.
+// sirve para un solo día). No deja elegir días futuros ni anteriores a
+// minFecha (la fecha del primer registro, si se conoce).
 // onApply recibe { desde, hasta } en formato 'YYYY-MM-DD'.
-const CalendarioRango = ({ visible, desde, hasta, onApply, onClose }) => {
+const CalendarioRango = ({
+  visible,
+  desde,
+  hasta,
+  minFecha,
+  onApply,
+  onClose,
+}) => {
   const hoy = getFechaHoyLocal();
   const [ini, setIni] = useState(null);
   const [fin, setFin] = useState(null);
@@ -50,8 +58,20 @@ const CalendarioRango = ({ visible, desde, hasta, onApply, onClose }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
+  // Si el primer registro llega con el calendario abierto y el mes mostrado
+  // queda antes de él, salta al mes del primer registro
+  useEffect(() => {
+    if (!minFecha) return;
+    const { y, m } = partesFecha(minFecha);
+    setCursor(c => (c.y < y || (c.y === y && c.m < m) ? { y, m } : c));
+  }, [minFecha]);
+
   const { y: hy, m: hm } = partesFecha(hoy);
   const enMesActual = cursor.y === hy && cursor.m === hm;
+  const mp = minFecha ? partesFecha(minFecha) : null;
+  const enPrimerMes =
+    !!mp && (cursor.y < mp.y || (cursor.y === mp.y && cursor.m <= mp.m));
+  const fueraDeRango = f => f > hoy || (!!minFecha && f < minFecha);
 
   const moverMes = delta =>
     setCursor(({ y, m }) => {
@@ -60,7 +80,7 @@ const CalendarioRango = ({ visible, desde, hasta, onApply, onClose }) => {
     });
 
   const tocarDia = f => {
-    if (f > hoy) return;
+    if (fueraDeRango(f)) return;
     if (!ini || (ini && fin)) {
       setIni(f);
       setFin(null);
@@ -71,7 +91,11 @@ const CalendarioRango = ({ visible, desde, hasta, onApply, onClose }) => {
     }
   };
 
-  const atajo = (a, b) => {
+  // Un atajo que cae por completo antes del primer registro no se ofrece;
+  // si solo se pasa en parte, el inicio se ajusta al primer registro.
+  const atajoDisponible = b => !minFecha || b >= minFecha;
+  const atajo = (a0, b) => {
+    const a = minFecha && a0 < minFecha ? minFecha : a0;
     setIni(a);
     setFin(b);
     const { y, m } = partesFecha(a);
@@ -95,7 +119,11 @@ const CalendarioRango = ({ visible, desde, hasta, onApply, onClose }) => {
           {/* Atajos */}
           <View style={s.atajos}>
             <TouchableOpacity
-              style={s.atajo}
+              style={[
+                s.atajo,
+                !atajoDisponible(sumarDias(hoy, -1)) && s.atajoOff,
+              ]}
+              disabled={!atajoDisponible(sumarDias(hoy, -1))}
               onPress={() => atajo(sumarDias(hoy, -1), sumarDias(hoy, -1))}
             >
               <Text style={s.atajoText}>Ayer</Text>
@@ -107,7 +135,11 @@ const CalendarioRango = ({ visible, desde, hasta, onApply, onClose }) => {
               <Text style={s.atajoText}>Últimos 7 días</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={s.atajo}
+              style={[
+                s.atajo,
+                !atajoDisponible(mesAnterior(hoy).hasta) && s.atajoOff,
+              ]}
+              disabled={!atajoDisponible(mesAnterior(hoy).hasta)}
               onPress={() => {
                 const r = mesAnterior(hoy);
                 atajo(r.desde, r.hasta);
@@ -121,9 +153,10 @@ const CalendarioRango = ({ visible, desde, hasta, onApply, onClose }) => {
           <View style={s.mesRow}>
             <TouchableOpacity
               onPress={() => moverMes(-1)}
+              disabled={enPrimerMes}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Text style={s.flecha}>‹</Text>
+              <Text style={[s.flecha, enPrimerMes && s.flechaOff]}>‹</Text>
             </TouchableOpacity>
             <Text style={s.mesTitulo}>
               {MESES[cursor.m]} {cursor.y}
@@ -147,7 +180,7 @@ const CalendarioRango = ({ visible, desde, hasta, onApply, onClose }) => {
             {casillasMes(cursor.y, cursor.m).map((d, i) => {
               if (d === null) return <View key={`v${i}`} style={s.celda} />;
               const f = armarFecha(cursor.y, cursor.m, d);
-              const futuro = f > hoy;
+              const apagado = fueraDeRango(f);
               const extremo = f === ini || f === fin;
               const medio = ini && fin && f > ini && f < fin;
               return (
@@ -155,14 +188,14 @@ const CalendarioRango = ({ visible, desde, hasta, onApply, onClose }) => {
                   key={f}
                   style={[s.celda, medio && s.celdaMedio]}
                   onPress={() => tocarDia(f)}
-                  disabled={futuro}
+                  disabled={apagado}
                   activeOpacity={0.6}
                 >
                   <View style={[s.dia, extremo && s.diaExtremo]}>
                     <Text
                       style={[
                         s.diaText,
-                        futuro && s.diaFuturo,
+                        apagado && s.diaApagado,
                         extremo && s.diaTextExtremo,
                         f === hoy && !extremo && s.diaHoy,
                       ]}
@@ -216,6 +249,7 @@ const s = StyleSheet.create({
     backgroundColor: '#f0f0f0',
   },
   atajoText: { fontSize: 12, fontWeight: '600', color: '#555' },
+  atajoOff: { opacity: 0.35 },
   mesRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -249,7 +283,7 @@ const s = StyleSheet.create({
   diaExtremo: { backgroundColor: colors.primary },
   diaText: { fontSize: 14, color: colors.texto },
   diaTextExtremo: { color: '#fff', fontWeight: '700' },
-  diaFuturo: { color: '#ccc' },
+  diaApagado: { color: '#ccc' },
   diaHoy: { color: colors.primary, fontWeight: '700' },
   resumen: {
     textAlign: 'center',

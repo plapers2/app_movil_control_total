@@ -611,7 +611,11 @@ const ProduccionScreen = () => {
           <Text style={s.btnNewText}>+ Lote</Text>
         </TouchableOpacity>
       </View>
-      <FiltroPeriodo periodo={periodo} onChange={cambiarPeriodo} />
+      <FiltroPeriodo
+        periodo={periodo}
+        onChange={cambiarPeriodo}
+        modulo="produccion"
+      />
       {refrescando && (
         <ActivityIndicator
           size="small"

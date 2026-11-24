@@ -394,7 +394,11 @@ const CajaScreen = () => {
         </>
       )}
 
-      <FiltroPeriodo periodo={periodo} onChange={cambiarPeriodo} />
+      <FiltroPeriodo
+        periodo={periodo}
+        onChange={cambiarPeriodo}
+        modulo="caja"
+      />
       {refrescando && (
         <ActivityIndicator
           size="small"
