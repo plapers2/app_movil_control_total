@@ -37,6 +37,7 @@ const CajaScreen = () => {
     tipo: 'gasto',
     categoria: 'insumo',
     tipo_servicio: null,
+    periodo_servicio: '',
     monto: '',
     descripcion: '',
   });
@@ -59,6 +60,7 @@ const CajaScreen = () => {
   const [anulando, setAnulando] = useState(false);
 
   // Vincular el gasto a insumos (opcional) para sumar al inventario
+  const [serviciosPublicos, setServiciosPublicos] = useState([]);
   const [insumos, setInsumos] = useState([]);
   const [busquedaInsumo, setBusquedaInsumo] = useState('');
   const [insumosForm, setInsumosForm] = useState([]); // [{ insumos_id, nombre, unidad_medida, cantidad }]
@@ -101,8 +103,9 @@ const CajaScreen = () => {
   const cargarExtras = useCallback(async () => {
     getRol().then(setRol);
     try {
-      const i = await client.get('/insumos');
+      const [i, sp] = await Promise.all([client.get('/insumos'), client.get('/servicios-publicos')]);
       setInsumos(i.data.data);
+      setServiciosPublicos(sp.data.data.servicios || []);
     } catch (err) {
       avisarError(err, 'No se pudieron cargar los insumos.');
     }
@@ -188,6 +191,8 @@ const CajaScreen = () => {
         'Error',
         'Selecciona el tipo de servicio (energía, agua o gas).',
       );
+    if (form.categoria === 'servicio_publico' && !form.periodo_servicio)
+      return Alert.alert('Mes requerido', 'Selecciona cuál mes de recibo estás registrando.');
     if (insumosForm.some(i => !(aNumero(i.cantidad) > 0)))
       return Alert.alert(
         'Error',
@@ -202,6 +207,8 @@ const CajaScreen = () => {
           form.categoria === 'servicio_publico'
             ? form.tipo_servicio
             : undefined,
+        periodo_servicio:
+          form.categoria === 'servicio_publico' ? form.periodo_servicio : undefined,
         monto: aDinero(form.monto),
         descripcion: form.descripcion,
         fecha: getFechaHoyLocal(),
@@ -212,11 +219,14 @@ const CajaScreen = () => {
             }))
           : undefined,
       });
+      const spActualizados = await client.get('/servicios-publicos');
+      setServiciosPublicos(spActualizados.data.data.servicios || []);
       setModal(false);
       setForm({
         tipo: 'gasto',
         categoria: 'insumo',
         tipo_servicio: null,
+        periodo_servicio: '',
         monto: '',
         descripcion: '',
       });
@@ -528,6 +538,7 @@ const CajaScreen = () => {
                           categoria: c,
                           tipo_servicio:
                             c === 'servicio_publico' ? p.tipo_servicio : null,
+                          periodo_servicio: c === 'servicio_publico' ? p.periodo_servicio : '',
                         }));
                         if (c !== 'insumo') {
                           setInsumosForm([]);
@@ -560,9 +571,15 @@ const CajaScreen = () => {
                             s.chip,
                             form.tipo_servicio === ts && s.chipActive,
                           ]}
-                          onPress={() =>
-                            setForm(p => ({ ...p, tipo_servicio: ts }))
-                          }
+                          onPress={() => {
+                            const servicio = serviciosPublicos.find(x => x.servicio === ts);
+                            const pendientes = (servicio?.meses || []).filter(m => !m.registrado);
+                            setForm(p => ({
+                              ...p,
+                              tipo_servicio: ts,
+                              periodo_servicio: pendientes.length ? pendientes[pendientes.length - 1].mes : '',
+                            }));
+                          }}
                         >
                           <Text
                             style={[
@@ -575,6 +592,28 @@ const CajaScreen = () => {
                         </TouchableOpacity>
                       ))}
                     </View>
+                    <Text style={s.fieldLabel}>Mes del recibo que vas a registrar *</Text>
+                    {(() => {
+                      const servicio = serviciosPublicos.find(x => x.servicio === form.tipo_servicio);
+                      const pendientes = (servicio?.meses || []).filter(m => !m.registrado);
+                      return pendientes.length ? (
+                        <View style={s.chipsMes}>
+                          {pendientes.map(m => (
+                            <TouchableOpacity
+                              key={m.mes}
+                              style={[s.chip, form.periodo_servicio === m.mes && s.chipActive]}
+                              onPress={() => setForm(p => ({ ...p, periodo_servicio: m.mes }))}
+                            >
+                              <Text style={[s.chipText, form.periodo_servicio === m.mes && s.chipTextActive]}>
+                                {new Date(Number(m.mes.slice(0, 4)), Number(m.mes.slice(5, 7)) - 1, 1).toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      ) : (
+                        <Text style={s.sinMesesPendientes}>No hay meses pendientes para este servicio.</Text>
+                      );
+                    })()}
                   </>
                 )}
 
@@ -1022,6 +1061,8 @@ const s = StyleSheet.create({
     paddingHorizontal: 20,
     gap: 8,
   },
+  chipsMes: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 20, gap: 8 },
+  sinMesesPendientes: { paddingHorizontal: 20, color: colors.verde, fontSize: 13, marginTop: 4 },
   chip: {
     paddingHorizontal: 14,
     paddingVertical: 7,

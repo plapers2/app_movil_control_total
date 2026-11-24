@@ -29,6 +29,7 @@ const HomeScreen = () => {
   const [empresa, setEmpresa] = useState(null);
   const [resumen, setResumen] = useState(null);
   const [deudas, setDeudas] = useState(null);
+  const [serviciosPublicos, setServiciosPublicos] = useState(null);
   const [loading, setLoading] = useState(true);
   const [periodo, setPeriodo] = useState('dia');
   const [rango, setRango] = useState(null); // { desde, hasta } cuando periodo === 'rango'
@@ -46,6 +47,15 @@ const HomeScreen = () => {
       setResumen(res.data.data);
     } catch (err) {
       avisarError(err, 'No se pudo cargar el resumen.');
+    }
+  };
+
+  const cargarServiciosPublicos = async () => {
+    try {
+      const res = await client.get('/servicios-publicos');
+      setServiciosPublicos(res.data.data);
+    } catch (err) {
+      avisarError(err, 'No se pudo cargar el estado de servicios públicos.');
     }
   };
 
@@ -72,6 +82,7 @@ const HomeScreen = () => {
       await Promise.all([
         cargarResumen({ periodo, ...(rango || {}) }),
         cargarDeudas(),
+        cargarServiciosPublicos(),
       ]);
     } finally {
       setLoading(false); // el spinner nunca se queda pegado
@@ -187,10 +198,26 @@ const HomeScreen = () => {
         </>
       )}
 
+      {serviciosPublicos?.fechaInicio && (
+        <TouchableOpacity
+          style={s.serviciosCard}
+          onPress={() => navigation.navigate('ServiciosPublicos')}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={s.serviciosTitulo}>Servicios públicos</Text>
+            <Text style={s.serviciosSub}>
+              {serviciosPublicos.servicios.map(item => `${item.nombre}: ${item.pendientes}`).join(' · ')} pendientes
+            </Text>
+          </View>
+          <Text style={s.serviciosFlecha}>›</Text>
+        </TouchableOpacity>
+      )}
+
       <Text style={s.section}>Más opciones</Text>
       <View style={s.grid}>
         {[
           { label: '🧾 Deudas', screen: 'Deudas' },
+          { label: '💡 Servicios públicos', screen: 'ServiciosPublicos' },
           { label: '⏰ Clientes inactivos', screen: 'ClientesInactivos' },
           ...(rol === 'admin'
             ? [{ label: '📊 Rentabilidad', screen: 'Rentabilidad' }]
@@ -268,6 +295,10 @@ const s = StyleSheet.create({
   deudaLabel: { fontSize: 14, fontWeight: '700', color: colors.texto },
   deudaSub: { fontSize: 12, color: colors.textoSuave, marginTop: 2 },
   deudaValor: { fontSize: 18, fontWeight: 'bold', color: colors.primary },
+  serviciosCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', marginHorizontal: 12, marginTop: 10, padding: 16, borderRadius: 10, borderLeftWidth: 4, borderLeftColor: colors.azul, elevation: 1 },
+  serviciosTitulo: { fontSize: 14, fontWeight: '700', color: colors.texto },
+  serviciosSub: { fontSize: 12, color: colors.textoSuave, marginTop: 3 },
+  serviciosFlecha: { fontSize: 28, color: colors.azul, marginLeft: 8 },
   card: {
     flex: 1,
     backgroundColor: '#fff',
