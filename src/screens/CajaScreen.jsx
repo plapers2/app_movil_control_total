@@ -337,7 +337,9 @@ const CajaScreen = () => {
           <Text
             style={[
               s.balanceActualValor,
-              { color: resumen.balanceTotal >= 0 ? colors.azul : colors.primary },
+              {
+                color: resumen.balanceTotal >= 0 ? colors.azul : colors.primary,
+              },
             ]}
           >
             {fmt(resumen.balanceTotal)}
@@ -371,14 +373,17 @@ const CajaScreen = () => {
               style={[
                 s.resCard,
                 {
-                  borderLeftColor: resumen.balance >= 0 ? colors.azul : colors.primary,
+                  borderLeftColor:
+                    resumen.balance >= 0 ? colors.azul : colors.primary,
                 },
               ]}
             >
               <Text
                 style={[
                   s.resVal,
-                  { color: resumen.balance >= 0 ? colors.azul : colors.primary },
+                  {
+                    color: resumen.balance >= 0 ? colors.azul : colors.primary,
+                  },
                 ]}
               >
                 {fmt(resumen.balance)}
@@ -414,6 +419,11 @@ const CajaScreen = () => {
                   {fmtFecha(item.fecha)} · {item.categoria}
                   {item.tipo_servicio ? ` (${item.tipo_servicio})` : ''}
                 </Text>
+                {item.ventas_id ? (
+                  <Text style={s.cardMeta}>
+                    Generado por la venta #{item.ventas_id}
+                  </Text>
+                ) : null}
               </View>
               <Text
                 style={[
@@ -425,7 +435,7 @@ const CajaScreen = () => {
                 {fmt(item.monto)}
               </Text>
             </View>
-            {rol === 'admin' && (
+            {rol === 'admin' && !item.ventas_id && (
               <View style={s.actions}>
                 <TouchableOpacity
                   onPress={() => abrirEditar(item)}
@@ -992,7 +1002,10 @@ const s = StyleSheet.create({
     borderColor: colors.borde,
     alignItems: 'center',
   },
-  toggleActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  toggleActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
   toggleText: { color: colors.textoSuave, fontWeight: '600' },
   toggleTextActive: { color: '#fff' },
   chips: {
