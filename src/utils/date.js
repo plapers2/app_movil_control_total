@@ -45,3 +45,44 @@ export const fmtFecha = d => {
   const [y, m, dia] = String(d).slice(0, 10).split('-');
   return `${dia}/${m}/${y}`;
 };
+
+
+// ─── Calendario ──────────────────────────────────────────────────────
+// Trabajan con strings 'YYYY-MM-DD' y fechas UTC, así que no dependen de la
+// zona horaria del dispositivo. El mes va de 0 a 11, como en Date.
+const pad2 = n => String(n).padStart(2, '0');
+
+export const armarFecha = (y, m, d) => `${y}-${pad2(m + 1)}-${pad2(d)}`;
+
+export const partesFecha = f => {
+  const [y, m, d] = String(f).slice(0, 10).split('-').map(Number);
+  return { y, m: m - 1, d };
+};
+
+export const ultimoDiaMes = (y, m) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+
+// Suma (o resta, con n negativo) días a una fecha 'YYYY-MM-DD'
+export const sumarDias = (f, n) => {
+  const { y, m, d } = partesFecha(f);
+  const dt = new Date(Date.UTC(y, m, d + n));
+  return armarFecha(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate());
+};
+
+// Casillas de un mes para pintar la cuadrícula (semana de lunes a domingo):
+// null para los huecos antes del día 1 y luego 1..último día.
+export const casillasMes = (y, m) => {
+  const huecos = (new Date(Date.UTC(y, m, 1)).getUTCDay() + 6) % 7;
+  const dias = Array.from({ length: ultimoDiaMes(y, m) }, (_, i) => i + 1);
+  return [...Array(huecos).fill(null), ...dias];
+};
+
+// Primer y último día del mes anterior al de la fecha dada
+export const mesAnterior = f => {
+  const { y, m } = partesFecha(f);
+  const py = m === 0 ? y - 1 : y;
+  const pm = m === 0 ? 11 : m - 1;
+  return {
+    desde: armarFecha(py, pm, 1),
+    hasta: armarFecha(py, pm, ultimoDiaMes(py, pm)),
+  };
+};

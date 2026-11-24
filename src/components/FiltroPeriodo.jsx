@@ -1,14 +1,7 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  TextInput,
-  StyleSheet,
-  Alert,
-} from 'react-native';
-import { getFechaHoyLocal } from '../utils/date';
-import { esFechaValida } from '../utils/validar';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { getFechaHoyLocal, fmtFecha } from '../utils/date';
+import CalendarioRango from './CalendarioRango';
 import { colors } from '../theme/colors';
 
 const OPCIONES = [
@@ -19,42 +12,41 @@ const OPCIONES = [
   { key: 'rango', label: 'Rango' },
 ];
 
-// Filtro de periodo reutilizado en Home y Caja.
+// Filtro de periodo reutilizado en Inicio, Ventas, Producción, Caja y
+// Rentabilidad.
 // - dia/semana/mes: rangos ya calculados por el backend.
 // - total: todo lo registrado en el sistema, sin filtro de fecha.
-// - rango: el usuario escribe un desde/hasta (YYYY-MM-DD) y presiona Aplicar.
+// - rango: el usuario elige desde/hasta en un calendario.
 //
 // onChange recibe siempre un objeto: { periodo } o { periodo: 'rango', desde, hasta }.
 const FiltroPeriodo = ({ periodo, onChange }) => {
   const [mostrarRango, setMostrarRango] = useState(periodo === 'rango');
+  const [calendario, setCalendario] = useState(false);
   const [desde, setDesde] = useState(getFechaHoyLocal());
   const [hasta, setHasta] = useState(getFechaHoyLocal());
 
   const seleccionar = key => {
     if (key === 'rango') {
       setMostrarRango(true);
-      return; // espera a que el usuario presione "Aplicar"
+      setCalendario(true);
+      return;
     }
     setMostrarRango(false);
     onChange({ periodo: key });
   };
 
-  const aplicarRango = () => {
-    if (!esFechaValida(desde) || !esFechaValida(hasta))
-      return Alert.alert(
-        'Fechas inválidas',
-        'Usa el formato AAAA-MM-DD, por ejemplo 2026-11-23.',
-      );
-    if (desde > hasta)
-      return Alert.alert(
-        'Rango inválido',
-        'La fecha "Desde" no puede ser posterior a "Hasta".',
-      );
-    onChange({ periodo: 'rango', desde, hasta });
+  const aplicarRango = r => {
+    setDesde(r.desde);
+    setHasta(r.hasta);
+    setCalendario(false);
+    onChange({ periodo: 'rango', desde: r.desde, hasta: r.hasta });
   };
 
-  // Solo dígitos y guiones
-  const limpiarFecha = v => v.replace(/[^\d-]/g, '');
+  const cerrarCalendario = () => {
+    setCalendario(false);
+    // Si cancela sin haber aplicado nunca un rango, el chip no queda activo
+    if (periodo !== 'rango') setMostrarRango(false);
+  };
 
   return (
     <View>
@@ -79,36 +71,25 @@ const FiltroPeriodo = ({ periodo, onChange }) => {
       </View>
 
       {mostrarRango && (
-        <View style={s.rangoBox}>
-          <View style={s.rangoCampo}>
-            <Text style={s.rangoLabel}>Desde</Text>
-            <TextInput
-              style={s.rangoInput}
-              value={desde}
-              onChangeText={v => setDesde(limpiarFecha(v))}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#aaa"
-              maxLength={10}
-              keyboardType="numbers-and-punctuation"
-            />
-          </View>
-          <View style={s.rangoCampo}>
-            <Text style={s.rangoLabel}>Hasta</Text>
-            <TextInput
-              style={s.rangoInput}
-              value={hasta}
-              onChangeText={v => setHasta(limpiarFecha(v))}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#aaa"
-              maxLength={10}
-              keyboardType="numbers-and-punctuation"
-            />
-          </View>
-          <TouchableOpacity style={s.rangoBtn} onPress={aplicarRango}>
-            <Text style={s.rangoBtnText}>Aplicar</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={s.rangoBox}
+          onPress={() => setCalendario(true)}
+        >
+          <Text style={s.rangoIcono}>📅</Text>
+          <Text style={s.rangoTexto}>
+            {fmtFecha(desde)} → {fmtFecha(hasta)}
+          </Text>
+          <Text style={s.rangoCambiar}>Cambiar</Text>
+        </TouchableOpacity>
       )}
+
+      <CalendarioRango
+        visible={calendario}
+        desde={desde}
+        hasta={hasta}
+        onApply={aplicarRango}
+        onClose={cerrarCalendario}
+      />
     </View>
   );
 };
@@ -132,34 +113,19 @@ const s = StyleSheet.create({
   chipTextActivo: { color: '#fff' },
   rangoBox: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 16,
-    paddingBottom: 14,
-    gap: 8,
-  },
-  rangoCampo: { flex: 1 },
-  rangoLabel: {
-    fontSize: 11,
-    color: colors.textoSuave,
-    marginBottom: 4,
-    fontWeight: '600',
-  },
-  rangoInput: {
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderWidth: 1,
     borderColor: colors.borde,
     borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 13,
     backgroundColor: '#fff',
   },
-  rangoBtn: {
-    backgroundColor: colors.azul,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  rangoBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  rangoIcono: { fontSize: 16, marginRight: 8 },
+  rangoTexto: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.texto },
+  rangoCambiar: { fontSize: 13, fontWeight: '700', color: colors.azul },
 });
 
 export default FiltroPeriodo;
