@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, StatusBar } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
 import { getToken, getEmpresa, getRol, getUsuario } from '../store/authStore';
@@ -124,21 +124,37 @@ const EmpleadoTabs = () => (
   </Tab.Navigator>
 );
 
+// Elige las tabs según el rol. Es un componente propio para que React
+// Navigation no lo recree en cada render (antes era una función inline).
+const MainTabs = ({ route }) => {
+  const [rol, setRol] = useState(route.params?.rol ?? null);
+
+  useEffect(() => {
+    if (route.params?.rol) setRol(route.params.rol);
+    else getRol().then(setRol);
+  }, [route.params?.rol]);
+
+  if (!rol)
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#E63946" />
+      </View>
+    );
+  return rol === 'admin' ? <AdminTabs /> : <EmpleadoTabs />;
+};
+
 const AppNavigator = () => {
   const [loading, setLoading] = useState(true);
   const [initialRoute, setInitialRoute] = useState('Login');
-  const [rol, setRol] = useState(null);
 
   useEffect(() => {
     const checkSession = async () => {
       const token = await getToken();
       const empresa = await getEmpresa();
-      const rolGuardado = await getRol();
       const usuario = await getUsuario();
       if (token && usuario?.debe_cambiar_password) {
         setInitialRoute('CambiarPassword');
       } else if (token && empresa) {
-        setRol(rolGuardado);
         setInitialRoute('Main');
       } else if (token && usuario?.es_superadmin) {
         setInitialRoute('Superadmin');
@@ -160,34 +176,32 @@ const AppNavigator = () => {
     );
 
   return (
-    <NavigationContainer ref={navigationRef}>
-      <Stack.Navigator
-        initialRouteName={initialRoute}
-        screenOptions={{ headerShown: false }}
-      >
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="SelectEmpresa" component={SelectEmpresaScreen} />
-        <Stack.Screen name="Main" options={{ headerShown: false }}>
-          {({ route }) => {
-            const rolActual = route.params?.rol || rol;
-            return rolActual === 'admin' ? <AdminTabs /> : <EmpleadoTabs />;
-          }}
-        </Stack.Screen>
-        <Stack.Screen name="Deudas" component={DeudasScreen} />
-        <Stack.Screen
-          name="ClientesInactivos"
-          component={ClientesInactivosScreen}
-        />
-        <Stack.Screen name="Rentabilidad" component={RentabilidadScreen} />
-        <Stack.Screen name="Usuarios" component={UsuariosScreen} />
-        <Stack.Screen
-          name="CambiarPassword"
-          component={CambiarPasswordScreen}
-        />
-        <Stack.Screen name="Superadmin" component={SuperadminScreen} />
-        <Stack.Screen name="NuevaEmpresa" component={NuevaEmpresaScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <>
+      <StatusBar barStyle="dark-content" />
+      <NavigationContainer ref={navigationRef}>
+        <Stack.Navigator
+          initialRouteName={initialRoute}
+          screenOptions={{ headerShown: false }}
+        >
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="SelectEmpresa" component={SelectEmpresaScreen} />
+          <Stack.Screen name="Main" component={MainTabs} />
+          <Stack.Screen name="Deudas" component={DeudasScreen} />
+          <Stack.Screen
+            name="ClientesInactivos"
+            component={ClientesInactivosScreen}
+          />
+          <Stack.Screen name="Rentabilidad" component={RentabilidadScreen} />
+          <Stack.Screen name="Usuarios" component={UsuariosScreen} />
+          <Stack.Screen
+            name="CambiarPassword"
+            component={CambiarPasswordScreen}
+          />
+          <Stack.Screen name="Superadmin" component={SuperadminScreen} />
+          <Stack.Screen name="NuevaEmpresa" component={NuevaEmpresaScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </>
   );
 };
 
