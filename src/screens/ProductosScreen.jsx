@@ -15,6 +15,8 @@ import {
 import client from '../api/client';
 import { getRol } from '../store/authStore';
 import { avisarError } from '../utils/errores';
+import KeyboardView from '../components/KeyboardView';
+import { aNumero, aDinero } from '../utils/validar';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 
@@ -117,12 +119,17 @@ const ProductosScreen = () => {
   };
 
   const guardar = async () => {
-    if (!form.nombre) return Alert.alert('Error', 'El nombre es requerido.');
+    if (!form.nombre.trim())
+      return Alert.alert('Error', 'El nombre es requerido.');
 
-    // Validar que todos los ingredientes tengan cantidad
-    const invalido = receta.find(
-      r => !Number(r.cantidad) || Number(r.cantidad) <= 0,
-    );
+    const precio_venta = aDinero(form.precio_venta);
+    if (Number.isNaN(precio_venta) || precio_venta < 0)
+      return Alert.alert('Error', 'El precio de venta no es válido.');
+
+    const invalido = receta.find(r => {
+      const c = aNumero(r.cantidad);
+      return Number.isNaN(c) || c <= 0;
+    });
     if (invalido)
       return Alert.alert(
         'Error',
@@ -132,9 +139,9 @@ const ProductosScreen = () => {
     try {
       setSaving(true);
       const data = {
-        nombre: form.nombre,
+        nombre: form.nombre.trim(),
         descripcion: form.descripcion,
-        precio_venta: Number(form.precio_venta) || 0,
+        precio_venta,
         usa_energia: form.usa_energia,
         usa_agua: form.usa_agua,
         usa_gas: form.usa_gas,
@@ -153,7 +160,7 @@ const ProductosScreen = () => {
       await client.put(`/productos/${productoId}/receta`, {
         insumos: receta.map(r => ({
           insumos_id: r.insumos_id,
-          cantidad: Number(r.cantidad),
+          cantidad: aNumero(r.cantidad),
         })),
       });
 
@@ -287,152 +294,156 @@ const ProductosScreen = () => {
               <Text style={s.close}>✕</Text>
             </TouchableOpacity>
           </View>
+          <KeyboardView>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: 32 }}
+            >
+              {/* ── Datos básicos ── */}
+              <Text style={s.sectionLabel}>Información del producto</Text>
 
-          <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
-            {/* ── Datos básicos ── */}
-            <Text style={s.sectionLabel}>Información del producto</Text>
-
-            <View style={s.field}>
-              <Text style={s.label}>Nombre *</Text>
-              <TextInput
-                style={s.input}
-                value={form.nombre}
-                onChangeText={v => setForm(p => ({ ...p, nombre: v }))}
-                placeholder="Ej: Arepa de choclo"
-              />
-            </View>
-
-            <View style={s.field}>
-              <Text style={s.label}>Descripción</Text>
-              <TextInput
-                style={[s.input, { minHeight: 70 }]}
-                value={form.descripcion}
-                onChangeText={v => setForm(p => ({ ...p, descripcion: v }))}
-                placeholder="Descripción opcional"
-                multiline
-              />
-            </View>
-
-            <View style={s.field}>
-              <Text style={s.label}>Precio de venta</Text>
-              <TextInput
-                style={s.input}
-                value={form.precio_venta}
-                onChangeText={v => setForm(p => ({ ...p, precio_venta: v }))}
-                keyboardType="numeric"
-                placeholder="Ej: 2500"
-              />
-            </View>
-
-            <View style={s.field}>
-              <Text style={s.label}>
-                Servicios públicos que usa (para repartir el costo de luz, agua
-                y gas entre los productos que de verdad los consumen)
-              </Text>
-              <View style={s.servicioChips}>
-                {[
-                  { key: 'usa_energia', label: 'Energía' },
-                  { key: 'usa_agua', label: 'Agua' },
-                  { key: 'usa_gas', label: 'Gas' },
-                ].map(sv => (
-                  <TouchableOpacity
-                    key={sv.key}
-                    style={[
-                      s.servicioChip,
-                      form[sv.key] && s.servicioChipActive,
-                    ]}
-                    onPress={() =>
-                      setForm(p => ({ ...p, [sv.key]: !p[sv.key] }))
-                    }
-                  >
-                    <Text
-                      style={[
-                        s.servicioChipText,
-                        form[sv.key] && s.servicioChipTextActive,
-                      ]}
-                    >
-                      {form[sv.key] ? '✓ ' : ''}
-                      {sv.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={s.field}>
+                <Text style={s.label}>Nombre *</Text>
+                <TextInput
+                  style={s.input}
+                  value={form.nombre}
+                  onChangeText={v => setForm(p => ({ ...p, nombre: v }))}
+                  placeholder="Ej: Arepa de choclo"
+                />
               </View>
-            </View>
 
-            {/* ── Receta ── */}
-            <View style={s.recetaHeader}>
-              <Text style={s.sectionLabel}>Receta / Ingredientes</Text>
-              <TouchableOpacity
-                style={s.btnAgregarInsumo}
-                onPress={() => setModalInsumo(true)}
-              >
-                <Text style={s.btnAgregarInsumoText}>+ Agregar</Text>
-              </TouchableOpacity>
-            </View>
+              <View style={s.field}>
+                <Text style={s.label}>Descripción</Text>
+                <TextInput
+                  style={[s.input, { minHeight: 70 }]}
+                  value={form.descripcion}
+                  onChangeText={v => setForm(p => ({ ...p, descripcion: v }))}
+                  placeholder="Descripción opcional"
+                  multiline
+                />
+              </View>
 
-            {receta.length === 0 ? (
-              <TouchableOpacity
-                style={s.recetaVacia}
-                onPress={() => setModalInsumo(true)}
-              >
-                <Text style={s.recetaVaciaIcon}>🧾</Text>
-                <Text style={s.recetaVaciaText}>
-                  Sin ingredientes aún.{'\n'}Toca para agregar insumos a la
-                  receta.
+              <View style={s.field}>
+                <Text style={s.label}>Precio de venta</Text>
+                <TextInput
+                  style={s.input}
+                  value={form.precio_venta}
+                  onChangeText={v => setForm(p => ({ ...p, precio_venta: v }))}
+                  keyboardType="numeric"
+                  placeholder="Ej: 2500"
+                />
+              </View>
+
+              <View style={s.field}>
+                <Text style={s.label}>
+                  Servicios públicos que usa (para repartir el costo de luz,
+                  agua y gas entre los productos que de verdad los consumen)
                 </Text>
-              </TouchableOpacity>
-            ) : (
-              <>
-                {receta.map((item, idx) => (
-                  <View key={item.insumos_id} style={s.ingredienteRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.ingredienteNombre}>{item.nombre}</Text>
-                      <Text style={s.ingredienteUnidad}>{item.unidad}</Text>
-                    </View>
-                    <TextInput
-                      style={s.cantInput}
-                      value={item.cantidad}
-                      onChangeText={v =>
-                        setReceta(prev =>
-                          prev.map((r, i) =>
-                            i === idx ? { ...r, cantidad: v } : r,
-                          ),
-                        )
-                      }
-                      keyboardType="numeric"
-                    />
-                    <Text style={s.cantUnidad}>{item.unidad}</Text>
+                <View style={s.servicioChips}>
+                  {[
+                    { key: 'usa_energia', label: 'Energía' },
+                    { key: 'usa_agua', label: 'Agua' },
+                    { key: 'usa_gas', label: 'Gas' },
+                  ].map(sv => (
                     <TouchableOpacity
+                      key={sv.key}
+                      style={[
+                        s.servicioChip,
+                        form[sv.key] && s.servicioChipActive,
+                      ]}
                       onPress={() =>
-                        setReceta(prev => prev.filter((_, i) => i !== idx))
+                        setForm(p => ({ ...p, [sv.key]: !p[sv.key] }))
                       }
-                      style={s.removeBtn}
                     >
-                      <Text style={s.removeBtnText}>✕</Text>
+                      <Text
+                        style={[
+                          s.servicioChipText,
+                          form[sv.key] && s.servicioChipTextActive,
+                        ]}
+                      >
+                        {form[sv.key] ? '✓ ' : ''}
+                        {sv.label}
+                      </Text>
                     </TouchableOpacity>
-                  </View>
-                ))}
+                  ))}
+                </View>
+              </View>
+
+              {/* ── Receta ── */}
+              <View style={s.recetaHeader}>
+                <Text style={s.sectionLabel}>Receta / Ingredientes</Text>
                 <TouchableOpacity
-                  style={s.btnAgregarMas}
+                  style={s.btnAgregarInsumo}
                   onPress={() => setModalInsumo(true)}
                 >
-                  <Text style={s.btnAgregarMasText}>
-                    + Agregar otro ingrediente
+                  <Text style={s.btnAgregarInsumoText}>+ Agregar</Text>
+                </TouchableOpacity>
+              </View>
+
+              {receta.length === 0 ? (
+                <TouchableOpacity
+                  style={s.recetaVacia}
+                  onPress={() => setModalInsumo(true)}
+                >
+                  <Text style={s.recetaVaciaIcon}>🧾</Text>
+                  <Text style={s.recetaVaciaText}>
+                    Sin ingredientes aún.{'\n'}Toca para agregar insumos a la
+                    receta.
                   </Text>
                 </TouchableOpacity>
-              </>
-            )}
+              ) : (
+                <>
+                  {receta.map((item, idx) => (
+                    <View key={item.insumos_id} style={s.ingredienteRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.ingredienteNombre}>{item.nombre}</Text>
+                        <Text style={s.ingredienteUnidad}>{item.unidad}</Text>
+                      </View>
+                      <TextInput
+                        style={s.cantInput}
+                        value={item.cantidad}
+                        onChangeText={v =>
+                          setReceta(prev =>
+                            prev.map((r, i) =>
+                              i === idx ? { ...r, cantidad: v } : r,
+                            ),
+                          )
+                        }
+                        keyboardType="numeric"
+                      />
+                      <Text style={s.cantUnidad}>{item.unidad}</Text>
+                      <TouchableOpacity
+                        onPress={() =>
+                          setReceta(prev => prev.filter((_, i) => i !== idx))
+                        }
+                        style={s.removeBtn}
+                      >
+                        <Text style={s.removeBtnText}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                  <TouchableOpacity
+                    style={s.btnAgregarMas}
+                    onPress={() => setModalInsumo(true)}
+                  >
+                    <Text style={s.btnAgregarMasText}>
+                      + Agregar otro ingrediente
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
 
-            <TouchableOpacity
-              style={[s.btnGuardar, saving && { opacity: 0.6 }]}
-              onPress={guardar}
-              disabled={saving}
-            >
-              <Text style={s.btnGuardarText}>
-                {saving ? 'Guardando...' : 'Guardar producto'}
-              </Text>
-            </TouchableOpacity>
-          </ScrollView>
+              <TouchableOpacity
+                style={[s.btnGuardar, saving && { opacity: 0.6 }]}
+                onPress={guardar}
+                disabled={saving}
+              >
+                <Text style={s.btnGuardarText}>
+                  {saving ? 'Guardando...' : 'Guardar producto'}
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </KeyboardView>
         </View>
       </Modal>
 

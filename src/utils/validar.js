@@ -25,3 +25,15 @@ export const aNumero = txt => {
   const n = Number(t);
   return Number.isFinite(n) ? n : NaN;
 };
+
+// Dinero en COP: el punto es separador de miles ("1.500" = 1500)
+// y la coma es decimal. Vacío = 0. NaN si no es un número.
+export const aDinero = txt => {
+  const t = String(txt ?? '')
+    .trim()
+    .replace(/[\s$.]/g, '')
+    .replace(',', '.');
+  if (t === '') return 0;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : NaN;
+};

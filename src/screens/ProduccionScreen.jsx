@@ -12,6 +12,8 @@ import {
   ActivityIndicator,
   ScrollView,
   Pressable,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import client from '../api/client';
 import { getFechaHoyLocal, fmtFecha } from '../utils/date';
@@ -19,6 +21,8 @@ import { getRol } from '../store/authStore';
 import FiltroPeriodo from '../components/FiltroPeriodo';
 import BotonVerMas from '../components/BotonVerMas';
 import { avisarError } from '../utils/errores';
+import KeyboardView from '../components/KeyboardView';
+import { aNumero, aDinero } from '../utils/validar';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 
@@ -91,11 +95,11 @@ const PasoInsumos = ({ producto, onGuardar, onVolver, saving }) => {
   };
 
   const confirmar = () => {
-    const cantNum = Number(cantidad);
+    const cantNum = aNumero(cantidad);
     if (!cantNum || cantNum <= 0)
       return Alert.alert('Error', 'La cantidad debe ser mayor a 0.');
 
-    if (sinReceta && (!costoTotal || Number(costoTotal) <= 0)) {
+    if (sinReceta && (!costoTotal || aDinero(costoTotal) <= 0)) {
       return Alert.alert(
         'Error',
         'Ingresa cuánto pagaste en total por este lote.',
@@ -106,10 +110,10 @@ const PasoInsumos = ({ producto, onGuardar, onVolver, saving }) => {
       productos_id: producto.id,
       cantidad: cantNum,
       notas,
-      costo_total: sinReceta ? Number(costoTotal) : undefined,
+      costo_total: sinReceta ? aDinero(costoTotal) : undefined,
       insumos_reales: insumos.map(i => ({
         insumos_id: i.insumos_id,
-        cantidad: Number(i.cantidad_real) || 0,
+        cantidad: aNumero(i.cantidad_real) || 0,
       })),
     });
   };
@@ -189,9 +193,9 @@ const PasoInsumos = ({ producto, onGuardar, onVolver, saving }) => {
             keyboardType="numeric"
             placeholder="Ej: 70000"
           />
-          {Number(costoTotal) > 0 && Number(cantidad) > 0 && (
+          {aDinero(costoTotal) > 0 && Number(cantidad) > 0 && (
             <Text style={s.sectionHint}>
-              Costo por unidad: {fmt(Number(costoTotal) / Number(cantidad))}
+              Costo por unidad: {fmt(aDinero(costoTotal) / Number(cantidad))}
             </Text>
           )}
         </View>
@@ -315,8 +319,8 @@ const ProduccionScreen = () => {
       setLotes(prev => [...prev, ...res.data.data]);
       setPage(siguiente);
       setTotalPages(res.data.meta?.pages ?? 1);
-    } catch {
-      Alert.alert('Error', 'No se pudieron cargar más lotes.');
+    } catch (err) {
+      avisarError(err, 'No se pudieron cargar más lotes.');
     } finally {
       setLoadingMas(false);
     }
@@ -372,8 +376,8 @@ const ProduccionScreen = () => {
       const res = await client.get(`/produccion/${lote.id}`);
       setLoteDetalle(res.data.data);
       setModalDetalle(true);
-    } catch {
-      Alert.alert('Error', 'No se pudo cargar el detalle.');
+    } catch (err) {
+      avisarError(err, 'No se pudo cargar el detalle.');
     }
   };
 
@@ -403,8 +407,8 @@ const ProduccionScreen = () => {
           : '',
       );
       setModalEditar(true);
-    } catch {
-      Alert.alert('Error', 'No se pudo cargar el lote.');
+    } catch (err) {
+      avisarError(err, 'No se pudo cargar el lote.');
     }
   };
 
@@ -415,15 +419,15 @@ const ProduccionScreen = () => {
   };
 
   const guardarEdicion = async () => {
-    const cantNum = Number(cantidadEdit);
+    const cantNum = aNumero(cantidadEdit);
     if (!cantNum || cantNum <= 0)
       return Alert.alert('Error', 'La cantidad debe ser mayor a 0.');
-    if (insumosEdit.some(i => i.cantidad !== '' && Number(i.cantidad) < 0))
+    if (insumosEdit.some(i => i.cantidad !== '' && aNumero(i.cantidad) < 0))
       return Alert.alert('Error', 'Revisa las cantidades de los insumos.');
 
     const item = loteEditando.lotes_produccion_items?.[0];
     const sinRecetaEdit = insumosEdit.length === 0;
-    if (sinRecetaEdit && (!costoTotalEdit || Number(costoTotalEdit) <= 0)) {
+    if (sinRecetaEdit && (!costoTotalEdit || aDinero(costoTotalEdit) <= 0)) {
       return Alert.alert(
         'Error',
         'Ingresa cuánto pagaste en total por este lote.',
@@ -437,12 +441,12 @@ const ProduccionScreen = () => {
           {
             productos_id: item.productos_id,
             cantidad: cantNum,
-            costo_total: sinRecetaEdit ? Number(costoTotalEdit) : undefined,
+            costo_total: sinRecetaEdit ? aDinero(costoTotalEdit) : undefined,
           },
         ],
         insumos_reales: insumosEdit.map(i => ({
           insumos_id: i.insumos_id,
-          cantidad: Number(i.cantidad) || 0,
+          cantidad: aNumero(i.cantidad) || 0,
         })),
       });
       setModalEditar(false);
@@ -619,37 +623,38 @@ const ProduccionScreen = () => {
               <Text style={s.close}>✕</Text>
             </TouchableOpacity>
           </View>
-
-          {/* Indicador de pasos */}
-          <View style={s.pasos}>
-            <View style={s.paso}>
-              <Text style={[s.pasoNum, paso >= 1 && s.pasoNumActivo]}>1</Text>
-              <Text style={[s.pasoLabel, paso >= 1 && s.pasoLabelActivo]}>
-                Producto
-              </Text>
+          <KeyboardView>
+            {/* Indicador de pasos */}
+            <View style={s.pasos}>
+              <View style={s.paso}>
+                <Text style={[s.pasoNum, paso >= 1 && s.pasoNumActivo]}>1</Text>
+                <Text style={[s.pasoLabel, paso >= 1 && s.pasoLabelActivo]}>
+                  Producto
+                </Text>
+              </View>
+              <View style={s.pasoDivider} />
+              <View style={s.paso}>
+                <Text style={[s.pasoNum, paso >= 2 && s.pasoNumActivo]}>2</Text>
+                <Text style={[s.pasoLabel, paso >= 2 && s.pasoLabelActivo]}>
+                  Insumos
+                </Text>
+              </View>
             </View>
-            <View style={s.pasoDivider} />
-            <View style={s.paso}>
-              <Text style={[s.pasoNum, paso >= 2 && s.pasoNumActivo]}>2</Text>
-              <Text style={[s.pasoLabel, paso >= 2 && s.pasoLabelActivo]}>
-                Insumos
-              </Text>
-            </View>
-          </View>
 
-          {paso === 1 ? (
-            <PasoProducto
-              productos={productos}
-              onSeleccionar={seleccionarProducto}
-            />
-          ) : (
-            <PasoInsumos
-              producto={productoSeleccionado}
-              onGuardar={guardar}
-              onVolver={() => setPaso(1)}
-              saving={saving}
-            />
-          )}
+            {paso === 1 ? (
+              <PasoProducto
+                productos={productos}
+                onSeleccionar={seleccionarProducto}
+              />
+            ) : (
+              <PasoInsumos
+                producto={productoSeleccionado}
+                onGuardar={guardar}
+                onVolver={() => setPaso(1)}
+                saving={saving}
+              />
+            )}
+          </KeyboardView>
         </View>
       </Modal>
       <Modal
@@ -737,77 +742,78 @@ const ProduccionScreen = () => {
               <Text style={s.close}>✕</Text>
             </TouchableOpacity>
           </View>
-
-          <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
-            <View style={s.productoSeleccionado}>
-              <Text style={s.productoSeleccionadoNombre}>
-                {loteEditando?.lotes_produccion_items?.[0]?.productos?.nombre}
-              </Text>
-            </View>
-
-            <View style={s.field}>
-              <Text style={s.label}>Unidades que salieron del lote *</Text>
-              <TextInput
-                style={s.input}
-                value={cantidadEdit}
-                onChangeText={setCantidadEdit}
-                keyboardType="numeric"
-              />
-            </View>
-
-            {insumosEdit.length > 0 ? (
-              <>
-                <Text style={s.sectionLabel}>Insumos utilizados</Text>
-                {insumosEdit.map((item, idx) => (
-                  <View key={item.insumos_id} style={s.insumoRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.insumoNombre}>{item.nombre}</Text>
-                    </View>
-                    <TextInput
-                      style={s.cantInput}
-                      value={item.cantidad}
-                      onChangeText={v => cambiarInsumoEdit(idx, v)}
-                      keyboardType="numeric"
-                    />
-                    <Text style={s.unidad}>{item.unidad}</Text>
-                  </View>
-                ))}
-              </>
-            ) : (
-              <View style={s.field}>
-                <Text style={s.label}>
-                  ¿Cuánto pagaste en total por este lote? *
+          <KeyboardView>
+            <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+              <View style={s.productoSeleccionado}>
+                <Text style={s.productoSeleccionadoNombre}>
+                  {loteEditando?.lotes_produccion_items?.[0]?.productos?.nombre}
                 </Text>
+              </View>
+
+              <View style={s.field}>
+                <Text style={s.label}>Unidades que salieron del lote *</Text>
                 <TextInput
                   style={s.input}
-                  value={costoTotalEdit}
-                  onChangeText={setCostoTotalEdit}
+                  value={cantidadEdit}
+                  onChangeText={setCantidadEdit}
                   keyboardType="numeric"
-                  placeholder="Ej: 70000"
                 />
               </View>
-            )}
 
-            <View style={s.field}>
-              <Text style={s.label}>Notas (opcional)</Text>
-              <TextInput
-                style={[s.input, { minHeight: 70 }]}
-                value={notasEdit}
-                onChangeText={setNotasEdit}
-                multiline
-              />
-            </View>
+              {insumosEdit.length > 0 ? (
+                <>
+                  <Text style={s.sectionLabel}>Insumos utilizados</Text>
+                  {insumosEdit.map((item, idx) => (
+                    <View key={item.insumos_id} style={s.insumoRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.insumoNombre}>{item.nombre}</Text>
+                      </View>
+                      <TextInput
+                        style={s.cantInput}
+                        value={item.cantidad}
+                        onChangeText={v => cambiarInsumoEdit(idx, v)}
+                        keyboardType="numeric"
+                      />
+                      <Text style={s.unidad}>{item.unidad}</Text>
+                    </View>
+                  ))}
+                </>
+              ) : (
+                <View style={s.field}>
+                  <Text style={s.label}>
+                    ¿Cuánto pagaste en total por este lote? *
+                  </Text>
+                  <TextInput
+                    style={s.input}
+                    value={costoTotalEdit}
+                    onChangeText={setCostoTotalEdit}
+                    keyboardType="numeric"
+                    placeholder="Ej: 70000"
+                  />
+                </View>
+              )}
 
-            <TouchableOpacity
-              style={[s.btnGuardar, savingEdit && { opacity: 0.6 }]}
-              onPress={guardarEdicion}
-              disabled={savingEdit}
-            >
-              <Text style={s.btnGuardarText}>
-                {savingEdit ? 'Guardando...' : 'Guardar cambios'}
-              </Text>
-            </TouchableOpacity>
-          </ScrollView>
+              <View style={s.field}>
+                <Text style={s.label}>Notas (opcional)</Text>
+                <TextInput
+                  style={[s.input, { minHeight: 70 }]}
+                  value={notasEdit}
+                  onChangeText={setNotasEdit}
+                  multiline
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[s.btnGuardar, savingEdit && { opacity: 0.6 }]}
+                onPress={guardarEdicion}
+                disabled={savingEdit}
+              >
+                <Text style={s.btnGuardarText}>
+                  {savingEdit ? 'Guardando...' : 'Guardar cambios'}
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </KeyboardView>
         </View>
       </Modal>
 
@@ -817,7 +823,10 @@ const ProduccionScreen = () => {
         transparent
         onRequestClose={() => setModalAnular(false)}
       >
-        <View style={s.overlay}>
+        <KeyboardAvoidingView
+          style={s.overlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <View style={s.confirmBox}>
             <Text style={s.confirmTitle}>Anular lote #{loteAnulando?.id}</Text>
             <Text style={s.confirmText}>
@@ -850,7 +859,7 @@ const ProduccionScreen = () => {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

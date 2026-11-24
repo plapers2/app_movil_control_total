@@ -11,6 +11,8 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import client from '../api/client';
 import { getFechaHoyLocal, fmtFecha } from '../utils/date';
@@ -19,6 +21,8 @@ import FiltroPeriodo from '../components/FiltroPeriodo';
 import BotonVerMas from '../components/BotonVerMas';
 import { coincide } from '../utils/texto';
 import { avisarError } from '../utils/errores';
+import KeyboardView from '../components/KeyboardView';
+import { aNumero, aDinero } from '../utils/validar';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 
@@ -127,8 +131,8 @@ const CajaScreen = () => {
       setMovimientos(prev => [...prev, ...res.data.data]);
       setPage(siguiente);
       setTotalPages(res.data.meta?.pages ?? 1);
-    } catch {
-      Alert.alert('Error', 'No se pudieron cargar más movimientos.');
+    } catch (err) {
+      avisarError(err, 'No se pudieron cargar más movimientos.');
     } finally {
       setLoadingMas(false);
     }
@@ -182,14 +186,18 @@ const CajaScreen = () => {
   );
 
   const guardar = async () => {
-    if (!form.monto || !form.descripcion)
-      return Alert.alert('Error', 'Monto y descripción son requeridos.');
+    const monto = aDinero(form.monto);
+    if (!form.descripcion.trim() || !(monto > 0))
+      return Alert.alert(
+        'Error',
+        'Monto (mayor a 0) y descripción son requeridos.',
+      );
     if (form.categoria === 'servicio_publico' && !form.tipo_servicio)
       return Alert.alert(
         'Error',
         'Selecciona el tipo de servicio (energía, agua o gas).',
       );
-    if (insumosForm.some(i => !Number(i.cantidad) || Number(i.cantidad) <= 0))
+    if (insumosForm.some(i => !(aNumero(i.cantidad) > 0)))
       return Alert.alert(
         'Error',
         'Revisa las cantidades de los insumos, deben ser mayores a 0 (o quítalos de la lista).',
@@ -203,13 +211,13 @@ const CajaScreen = () => {
           form.categoria === 'servicio_publico'
             ? form.tipo_servicio
             : undefined,
-        monto: Number(form.monto),
+        monto: aDinero(form.monto),
         descripcion: form.descripcion,
         fecha: getFechaHoyLocal(),
         insumos: insumosForm.length
           ? insumosForm.map(i => ({
               insumos_id: i.insumos_id,
-              cantidad: Number(i.cantidad),
+              cantidad: aNumero(i.cantidad),
             }))
           : undefined,
       });
@@ -249,8 +257,12 @@ const CajaScreen = () => {
   };
 
   const guardarEdicion = async () => {
-    if (!formEdit.monto || !formEdit.descripcion)
-      return Alert.alert('Error', 'Monto y descripción son requeridos.');
+    const monto = aDinero(form.monto);
+    if (!form.descripcion.trim() || !(monto > 0))
+      return Alert.alert(
+        'Error',
+        'Monto (mayor a 0) y descripción son requeridos.',
+      );
     if (formEdit.categoria === 'servicio_publico' && !formEdit.tipo_servicio)
       return Alert.alert(
         'Error',
@@ -265,7 +277,7 @@ const CajaScreen = () => {
           formEdit.categoria === 'servicio_publico'
             ? formEdit.tipo_servicio
             : undefined,
-        monto: Number(formEdit.monto),
+        monto: aNumero(formEdit.monto),
         descripcion: formEdit.descripcion,
         fecha: movEditando.fecha,
       });
@@ -458,55 +470,21 @@ const CajaScreen = () => {
               <Text style={s.close}>✕</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView>
-            <Text style={s.fieldLabel}>Tipo</Text>
-            <View style={s.toggle}>
-              {['gasto', 'ingreso'].map(t => (
-                <TouchableOpacity
-                  key={t}
-                  style={[s.toggleBtn, form.tipo === t && s.toggleActive]}
-                  onPress={() => {
-                    setForm(p => ({
-                      ...p,
-                      tipo: t,
-                      categoria: t === 'gasto' ? 'insumo' : 'venta',
-                    }));
-                    if (t !== 'gasto') {
-                      setInsumosForm([]);
-                      setBusquedaInsumo('');
-                    }
-                  }}
-                >
-                  <Text
-                    style={[
-                      s.toggleText,
-                      form.tipo === t && s.toggleTextActive,
-                    ]}
-                  >
-                    {t.charAt(0).toUpperCase() + t.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={s.fieldLabel}>Categoría</Text>
-            <View style={s.chips}>
-              <View style={s.chips}>
-                {(form.tipo === 'gasto'
-                  ? ['insumo', 'servicio', 'servicio_publico', 'otro']
-                  : ['venta', 'otro']
-                ).map(c => (
+          <KeyboardView>
+            <ScrollView>
+              <Text style={s.fieldLabel}>Tipo</Text>
+              <View style={s.toggle}>
+                {['gasto', 'ingreso'].map(t => (
                   <TouchableOpacity
-                    key={c}
-                    style={[s.chip, form.categoria === c && s.chipActive]}
+                    key={t}
+                    style={[s.toggleBtn, form.tipo === t && s.toggleActive]}
                     onPress={() => {
                       setForm(p => ({
                         ...p,
-                        categoria: c,
-                        tipo_servicio:
-                          c === 'servicio_publico' ? p.tipo_servicio : null,
+                        tipo: t,
+                        categoria: t === 'gasto' ? 'insumo' : 'venta',
                       }));
-                      if (c !== 'insumo') {
+                      if (t !== 'gasto') {
                         setInsumosForm([]);
                         setBusquedaInsumo('');
                       }
@@ -514,146 +492,183 @@ const CajaScreen = () => {
                   >
                     <Text
                       style={[
-                        s.chipText,
-                        form.categoria === c && s.chipTextActive,
+                        s.toggleText,
+                        form.tipo === t && s.toggleTextActive,
                       ]}
                     >
-                      {c === 'servicio_publico' ? 'servicio público' : c}
+                      {t.charAt(0).toUpperCase() + t.slice(1)}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
-            </View>
 
-            {form.tipo === 'gasto' && form.categoria === 'servicio_publico' && (
-              <>
-                <Text style={s.fieldLabel}>Tipo de servicio *</Text>
+              <Text style={s.fieldLabel}>Categoría</Text>
+              <View style={s.chips}>
                 <View style={s.chips}>
-                  {['energia', 'agua', 'gas'].map(ts => (
+                  {(form.tipo === 'gasto'
+                    ? ['insumo', 'servicio', 'servicio_publico', 'otro']
+                    : ['venta', 'otro']
+                  ).map(c => (
                     <TouchableOpacity
-                      key={ts}
-                      style={[
-                        s.chip,
-                        form.tipo_servicio === ts && s.chipActive,
-                      ]}
-                      onPress={() =>
-                        setForm(p => ({ ...p, tipo_servicio: ts }))
-                      }
+                      key={c}
+                      style={[s.chip, form.categoria === c && s.chipActive]}
+                      onPress={() => {
+                        setForm(p => ({
+                          ...p,
+                          categoria: c,
+                          tipo_servicio:
+                            c === 'servicio_publico' ? p.tipo_servicio : null,
+                        }));
+                        if (c !== 'insumo') {
+                          setInsumosForm([]);
+                          setBusquedaInsumo('');
+                        }
+                      }}
                     >
                       <Text
                         style={[
                           s.chipText,
-                          form.tipo_servicio === ts && s.chipTextActive,
+                          form.categoria === c && s.chipTextActive,
                         ]}
                       >
-                        {ts === 'energia' ? 'energía' : ts}
+                        {c === 'servicio_publico' ? 'servicio público' : c}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
-              </>
-            )}
+              </View>
 
-            {form.tipo === 'gasto' && form.categoria === 'insumo' && (
-              <View style={s.field}>
-                <Text style={s.fieldLabel}>
-                  Vincular a insumos (opcional, suma al inventario)
-                </Text>
+              {form.tipo === 'gasto' &&
+                form.categoria === 'servicio_publico' && (
+                  <>
+                    <Text style={s.fieldLabel}>Tipo de servicio *</Text>
+                    <View style={s.chips}>
+                      {['energia', 'agua', 'gas'].map(ts => (
+                        <TouchableOpacity
+                          key={ts}
+                          style={[
+                            s.chip,
+                            form.tipo_servicio === ts && s.chipActive,
+                          ]}
+                          onPress={() =>
+                            setForm(p => ({ ...p, tipo_servicio: ts }))
+                          }
+                        >
+                          <Text
+                            style={[
+                              s.chipText,
+                              form.tipo_servicio === ts && s.chipTextActive,
+                            ]}
+                          >
+                            {ts === 'energia' ? 'energía' : ts}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </>
+                )}
 
-                <View style={s.buscadorBox}>
-                  <TextInput
-                    style={s.buscadorInput}
-                    value={busquedaInsumo}
-                    onChangeText={setBusquedaInsumo}
-                    placeholder="Buscar insumo..."
-                    placeholderTextColor="#aaa"
-                  />
-                  {busquedaInsumo.length > 0 && (
-                    <TouchableOpacity onPress={() => setBusquedaInsumo('')}>
-                      <Text style={s.removeBtn}>✕</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
+              {form.tipo === 'gasto' && form.categoria === 'insumo' && (
+                <View style={s.field}>
+                  <Text style={s.fieldLabel}>
+                    Vincular a insumos (opcional, suma al inventario)
+                  </Text>
 
-                {busquedaInsumo.trim().length > 0 && (
-                  <View style={s.dropdown}>
-                    {insumos
-                      .filter(
+                  <View style={s.buscadorBox}>
+                    <TextInput
+                      style={s.buscadorInput}
+                      value={busquedaInsumo}
+                      onChangeText={setBusquedaInsumo}
+                      placeholder="Buscar insumo..."
+                      placeholderTextColor="#aaa"
+                    />
+                    {busquedaInsumo.length > 0 && (
+                      <TouchableOpacity onPress={() => setBusquedaInsumo('')}>
+                        <Text style={s.removeBtn}>✕</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {busquedaInsumo.trim().length > 0 && (
+                    <View style={s.dropdown}>
+                      {insumos
+                        .filter(
+                          i =>
+                            !insumosForm.some(f => f.insumos_id === i.id) &&
+                            coincide(i.nombre, busquedaInsumo),
+                        )
+                        .map(i => (
+                          <TouchableOpacity
+                            key={i.id}
+                            style={s.prodRow}
+                            onPress={() => agregarInsumoForm(i)}
+                          >
+                            <Text style={s.prodNombre}>{i.nombre}</Text>
+                            <Text style={s.prodPrecio}>{i.unidad_medida}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      {!insumos.some(
                         i =>
                           !insumosForm.some(f => f.insumos_id === i.id) &&
                           coincide(i.nombre, busquedaInsumo),
-                      )
-                      .map(i => (
-                        <TouchableOpacity
-                          key={i.id}
-                          style={s.prodRow}
-                          onPress={() => agregarInsumoForm(i)}
-                        >
-                          <Text style={s.prodNombre}>{i.nombre}</Text>
-                          <Text style={s.prodPrecio}>{i.unidad_medida}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    {!insumos.some(
-                      i =>
-                        !insumosForm.some(f => f.insumos_id === i.id) &&
-                        coincide(i.nombre, busquedaInsumo),
-                    ) && <Text style={s.empty}>Sin resultados</Text>}
-                  </View>
-                )}
+                      ) && <Text style={s.empty}>Sin resultados</Text>}
+                    </View>
+                  )}
 
-                {insumosForm.map(i => (
-                  <View key={i.insumos_id} style={s.insumoFormRow}>
-                    <Text style={s.insumoFormNombre}>{i.nombre}</Text>
-                    <TextInput
-                      style={s.cantInput}
-                      value={i.cantidad}
-                      onChangeText={v =>
-                        cambiarCantidadInsumoForm(i.insumos_id, v)
-                      }
-                      keyboardType="numeric"
-                      placeholder="0"
-                    />
-                    <Text style={s.unidad}>{i.unidad_medida}</Text>
-                    <TouchableOpacity
-                      onPress={() => quitarInsumoForm(i.insumos_id)}
-                    >
-                      <Text style={s.removeBtn}>✕</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
+                  {insumosForm.map(i => (
+                    <View key={i.insumos_id} style={s.insumoFormRow}>
+                      <Text style={s.insumoFormNombre}>{i.nombre}</Text>
+                      <TextInput
+                        style={s.cantInput}
+                        value={i.cantidad}
+                        onChangeText={v =>
+                          cambiarCantidadInsumoForm(i.insumos_id, v)
+                        }
+                        keyboardType="numeric"
+                        placeholder="0"
+                      />
+                      <Text style={s.unidad}>{i.unidad_medida}</Text>
+                      <TouchableOpacity
+                        onPress={() => quitarInsumoForm(i.insumos_id)}
+                      >
+                        <Text style={s.removeBtn}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              <View style={s.field}>
+                <Text style={s.fieldLabel}>Monto *</Text>
+                <TextInput
+                  style={s.input}
+                  value={form.monto}
+                  onChangeText={v => setForm(p => ({ ...p, monto: v }))}
+                  keyboardType="numeric"
+                  placeholder="0"
+                />
               </View>
-            )}
+              <View style={s.field}>
+                <Text style={s.fieldLabel}>Descripción *</Text>
+                <TextInput
+                  style={s.input}
+                  value={form.descripcion}
+                  onChangeText={v => setForm(p => ({ ...p, descripcion: v }))}
+                  placeholder="Ej: Compra de harina"
+                />
+              </View>
+            </ScrollView>
 
-            <View style={s.field}>
-              <Text style={s.fieldLabel}>Monto *</Text>
-              <TextInput
-                style={s.input}
-                value={form.monto}
-                onChangeText={v => setForm(p => ({ ...p, monto: v }))}
-                keyboardType="numeric"
-                placeholder="0"
-              />
-            </View>
-            <View style={s.field}>
-              <Text style={s.fieldLabel}>Descripción *</Text>
-              <TextInput
-                style={s.input}
-                value={form.descripcion}
-                onChangeText={v => setForm(p => ({ ...p, descripcion: v }))}
-                placeholder="Ej: Compra de harina"
-              />
-            </View>
-          </ScrollView>
-
-          <TouchableOpacity
-            style={[s.btnGuardar, saving && { opacity: 0.6 }]}
-            onPress={guardar}
-            disabled={saving}
-          >
-            <Text style={s.btnGuardarText}>
-              {saving ? 'Guardando...' : 'Guardar'}
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.btnGuardar, saving && { opacity: 0.6 }]}
+              onPress={guardar}
+              disabled={saving}
+            >
+              <Text style={s.btnGuardarText}>
+                {saving ? 'Guardando...' : 'Guardar'}
+              </Text>
+            </TouchableOpacity>
+          </KeyboardView>
         </View>
       </Modal>
       <Modal
@@ -742,121 +757,125 @@ const CajaScreen = () => {
               <Text style={s.close}>✕</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView>
-            <Text style={s.fieldLabel}>Tipo</Text>
-            <View style={s.toggle}>
-              {['gasto', 'ingreso'].map(t => (
-                <TouchableOpacity
-                  key={t}
-                  style={[s.toggleBtn, formEdit.tipo === t && s.toggleActive]}
-                  onPress={() =>
-                    setFormEdit(p => ({
-                      ...p,
-                      tipo: t,
-                      categoria: t === 'gasto' ? 'insumo' : 'venta',
-                    }))
-                  }
-                >
-                  <Text
-                    style={[
-                      s.toggleText,
-                      formEdit.tipo === t && s.toggleTextActive,
-                    ]}
+          <KeyboardView>
+            <ScrollView>
+              <Text style={s.fieldLabel}>Tipo</Text>
+              <View style={s.toggle}>
+                {['gasto', 'ingreso'].map(t => (
+                  <TouchableOpacity
+                    key={t}
+                    style={[s.toggleBtn, formEdit.tipo === t && s.toggleActive]}
+                    onPress={() =>
+                      setFormEdit(p => ({
+                        ...p,
+                        tipo: t,
+                        categoria: t === 'gasto' ? 'insumo' : 'venta',
+                      }))
+                    }
                   >
-                    {t.charAt(0).toUpperCase() + t.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+                    <Text
+                      style={[
+                        s.toggleText,
+                        formEdit.tipo === t && s.toggleTextActive,
+                      ]}
+                    >
+                      {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
-            <Text style={s.fieldLabel}>Categoría</Text>
-            <View style={s.chips}>
-              {(formEdit.tipo === 'gasto'
-                ? ['insumo', 'servicio', 'servicio_publico', 'otro']
-                : ['venta', 'otro']
-              ).map(c => (
-                <TouchableOpacity
-                  key={c}
-                  style={[s.chip, formEdit.categoria === c && s.chipActive]}
-                  onPress={() =>
-                    setFormEdit(p => ({
-                      ...p,
-                      categoria: c,
-                      tipo_servicio:
-                        c === 'servicio_publico' ? p.tipo_servicio : null,
-                    }))
-                  }
-                >
-                  <Text
-                    style={[
-                      s.chipText,
-                      formEdit.categoria === c && s.chipTextActive,
-                    ]}
+              <Text style={s.fieldLabel}>Categoría</Text>
+              <View style={s.chips}>
+                {(formEdit.tipo === 'gasto'
+                  ? ['insumo', 'servicio', 'servicio_publico', 'otro']
+                  : ['venta', 'otro']
+                ).map(c => (
+                  <TouchableOpacity
+                    key={c}
+                    style={[s.chip, formEdit.categoria === c && s.chipActive]}
+                    onPress={() =>
+                      setFormEdit(p => ({
+                        ...p,
+                        categoria: c,
+                        tipo_servicio:
+                          c === 'servicio_publico' ? p.tipo_servicio : null,
+                      }))
+                    }
                   >
-                    {c === 'servicio_publico' ? 'servicio público' : c}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+                    <Text
+                      style={[
+                        s.chipText,
+                        formEdit.categoria === c && s.chipTextActive,
+                      ]}
+                    >
+                      {c === 'servicio_publico' ? 'servicio público' : c}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
-            {formEdit.tipo === 'gasto' &&
-              formEdit.categoria === 'servicio_publico' && (
-                <>
-                  <Text style={s.fieldLabel}>Tipo de servicio *</Text>
-                  <View style={s.chips}>
-                    {['energia', 'agua', 'gas'].map(ts => (
-                      <TouchableOpacity
-                        key={ts}
-                        style={[
-                          s.chip,
-                          formEdit.tipo_servicio === ts && s.chipActive,
-                        ]}
-                        onPress={() =>
-                          setFormEdit(p => ({ ...p, tipo_servicio: ts }))
-                        }
-                      >
-                        <Text
+              {formEdit.tipo === 'gasto' &&
+                formEdit.categoria === 'servicio_publico' && (
+                  <>
+                    <Text style={s.fieldLabel}>Tipo de servicio *</Text>
+                    <View style={s.chips}>
+                      {['energia', 'agua', 'gas'].map(ts => (
+                        <TouchableOpacity
+                          key={ts}
                           style={[
-                            s.chipText,
-                            formEdit.tipo_servicio === ts && s.chipTextActive,
+                            s.chip,
+                            formEdit.tipo_servicio === ts && s.chipActive,
                           ]}
+                          onPress={() =>
+                            setFormEdit(p => ({ ...p, tipo_servicio: ts }))
+                          }
                         >
-                          {ts === 'energia' ? 'energía' : ts}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </>
-              )}
+                          <Text
+                            style={[
+                              s.chipText,
+                              formEdit.tipo_servicio === ts && s.chipTextActive,
+                            ]}
+                          >
+                            {ts === 'energia' ? 'energía' : ts}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </>
+                )}
 
-            <View style={s.field}>
-              <Text style={s.fieldLabel}>Monto *</Text>
-              <TextInput
-                style={s.input}
-                value={formEdit.monto}
-                onChangeText={v => setFormEdit(p => ({ ...p, monto: v }))}
-                keyboardType="numeric"
-              />
-            </View>
-            <View style={s.field}>
-              <Text style={s.fieldLabel}>Descripción *</Text>
-              <TextInput
-                style={s.input}
-                value={formEdit.descripcion}
-                onChangeText={v => setFormEdit(p => ({ ...p, descripcion: v }))}
-              />
-            </View>
-          </ScrollView>
+              <View style={s.field}>
+                <Text style={s.fieldLabel}>Monto *</Text>
+                <TextInput
+                  style={s.input}
+                  value={formEdit.monto}
+                  onChangeText={v => setFormEdit(p => ({ ...p, monto: v }))}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={s.field}>
+                <Text style={s.fieldLabel}>Descripción *</Text>
+                <TextInput
+                  style={s.input}
+                  value={formEdit.descripcion}
+                  onChangeText={v =>
+                    setFormEdit(p => ({ ...p, descripcion: v }))
+                  }
+                />
+              </View>
+            </ScrollView>
 
-          <TouchableOpacity
-            style={[s.btnGuardar, savingEdit && { opacity: 0.6 }]}
-            onPress={guardarEdicion}
-            disabled={savingEdit}
-          >
-            <Text style={s.btnGuardarText}>
-              {savingEdit ? 'Guardando...' : 'Guardar cambios'}
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.btnGuardar, savingEdit && { opacity: 0.6 }]}
+              onPress={guardarEdicion}
+              disabled={savingEdit}
+            >
+              <Text style={s.btnGuardarText}>
+                {savingEdit ? 'Guardando...' : 'Guardar cambios'}
+              </Text>
+            </TouchableOpacity>
+          </KeyboardView>
         </View>
       </Modal>
 
@@ -866,7 +885,10 @@ const CajaScreen = () => {
         transparent
         onRequestClose={() => setModalAnular(false)}
       >
-        <View style={s.overlay}>
+        <KeyboardAvoidingView
+          style={s.overlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <View style={s.confirmBox}>
             <Text style={s.confirmTitle}>Anular movimiento</Text>
             <Text style={s.confirmText}>
@@ -899,7 +921,7 @@ const CajaScreen = () => {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

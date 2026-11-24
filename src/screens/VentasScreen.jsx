@@ -11,6 +11,8 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import client from '../api/client';
 import { getFechaHoyLocal, fmtFecha } from '../utils/date';
@@ -20,6 +22,8 @@ import BotonVerMas from '../components/BotonVerMas';
 import SelectorProductoModal from '../components/SelectorProductoModal';
 import { coincide } from '../utils/texto';
 import { avisarError } from '../utils/errores';
+import KeyboardView from '../components/KeyboardView';
+import { aDinero, aNumero } from '../utils/validar';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 
@@ -133,8 +137,8 @@ const VentasScreen = () => {
       setVentas(prev => [...prev, ...res.data.data]);
       setPage(siguiente);
       setTotalPages(res.data.meta?.pages ?? 1);
-    } catch {
-      Alert.alert('Error', 'No se pudieron cargar más ventas.');
+    } catch (err) {
+      avisarError(err, 'No se pudieron cargar más movimientos.');
     } finally {
       setLoadingMas(false);
     }
@@ -191,7 +195,7 @@ const VentasScreen = () => {
           productos_id: producto.id,
           nombre: producto.nombre,
           cantidad: 1,
-          precio_unitario: Number(producto.precio_venta),
+          precio_unitario: aNumero(producto.precio_venta),
         },
       ];
     });
@@ -209,14 +213,14 @@ const VentasScreen = () => {
   };
 
   const total = items.reduce(
-    (s, i) => s + i.precio_unitario * (Number(i.cantidad) || 0),
+    (s, i) => s + i.precio_unitario * (aNumero(i.cantidad) || 0),
     0,
   );
 
   const guardar = async () => {
     if (!items.length)
       return Alert.alert('Error', 'Agrega al menos un producto.');
-    if (items.some(i => !Number(i.cantidad) || Number(i.cantidad) <= 0))
+    if (items.some(i => !(aNumero(i.cantidad) > 0)))
       return Alert.alert(
         'Error',
         'Revisa las cantidades, deben ser mayores a 0.',
@@ -226,7 +230,7 @@ const VentasScreen = () => {
         'Error',
         'Para una venta a crédito debes asignar un cliente.',
       );
-    if (credito && abonoInicial && Number(abonoInicial) > total)
+    if (credito && abonoInicial && aNumero(abonoInicial) > total)
       return Alert.alert(
         'Error',
         'El abono no puede ser mayor al total de la venta.',
@@ -238,10 +242,10 @@ const VentasScreen = () => {
         canal,
         clientes_id: clienteSeleccionado?.id ?? null,
         credito,
-        abono_inicial: credito ? Number(abonoInicial || 0) : undefined,
+        abono_inicial: credito ? aNumero(abonoInicial || 0) : undefined,
         items: items.map(({ productos_id, cantidad, precio_unitario }) => ({
           productos_id,
-          cantidad: Number(cantidad),
+          cantidad: aNumero(cantidad),
           precio_unitario,
         })),
       });
@@ -263,8 +267,8 @@ const VentasScreen = () => {
       const res = await client.get(`/ventas/${venta.id}`);
       setVentaDetalle(res.data.data);
       setModalDetalle(true);
-    } catch {
-      Alert.alert('Error', 'No se pudo cargar el detalle.');
+    } catch (err) {
+      avisarError(err, 'No se pudo cargar el detalle.');
     }
   };
 
@@ -279,12 +283,12 @@ const VentasScreen = () => {
           productos_id: vi.productos_id,
           nombre: vi.productos?.nombre,
           cantidad: String(vi.cantidad),
-          precio_unitario: Number(vi.precio_unitario),
+          precio_unitario: aNumero(vi.precio_unitario),
         })),
       );
       setModalEditar(true);
-    } catch {
-      Alert.alert('Error', 'No se pudo cargar la venta.');
+    } catch (err) {
+      avisarError(err, 'No se pudo cargar la venta.');
     }
   };
 
@@ -294,7 +298,7 @@ const VentasScreen = () => {
       if (existe) {
         return prev.map(i =>
           i.productos_id === producto.id
-            ? { ...i, cantidad: String((Number(i.cantidad) || 0) + 1) }
+            ? { ...i, cantidad: String((aNumero(i.cantidad) || 0) + 1) }
             : i,
         );
       }
@@ -304,7 +308,7 @@ const VentasScreen = () => {
           productos_id: producto.id,
           nombre: producto.nombre,
           cantidad: '1',
-          precio_unitario: Number(producto.precio_venta),
+          precio_unitario: aNumero(producto.precio_venta),
         },
       ];
     });
@@ -322,14 +326,14 @@ const VentasScreen = () => {
   };
 
   const totalEdit = itemsEdit.reduce(
-    (s, i) => s + i.precio_unitario * (Number(i.cantidad) || 0),
+    (s, i) => s + i.precio_unitario * (aNumero(i.cantidad) || 0),
     0,
   );
 
   const guardarEdicion = async () => {
     if (!itemsEdit.length)
       return Alert.alert('Error', 'La venta debe tener al menos un producto.');
-    if (itemsEdit.some(i => !Number(i.cantidad) || Number(i.cantidad) <= 0))
+    if (itemsEdit.some(i => !(aNumero(i.cantidad) > 0)))
       return Alert.alert(
         'Error',
         'Revisa las cantidades, deben ser mayores a 0.',
@@ -341,7 +345,7 @@ const VentasScreen = () => {
         notas: ventaEditando.notas,
         items: itemsEdit.map(({ productos_id, cantidad, precio_unitario }) => ({
           productos_id,
-          cantidad: Number(cantidad),
+          cantidad: aNumero(cantidad),
           precio_unitario,
         })),
       });
@@ -503,7 +507,7 @@ const VentasScreen = () => {
                       keyboardType="numeric"
                     />
                     <Text style={s.itemSubtotal}>
-                      {fmt(i.precio_unitario * (Number(i.cantidad) || 0))}
+                      {fmt(i.precio_unitario * (aNumero(i.cantidad) || 0))}
                     </Text>
                     <TouchableOpacity
                       onPress={() => quitarItem(i.productos_id)}
@@ -563,7 +567,7 @@ const VentasScreen = () => {
             {credito && (
               <View style={s.field}>
                 <Text style={s.fieldLabel}>
-                  Abono inicial{Number(abonoInicial) > 0 ? '' : ' (opcional)'}
+                  Abono inicial{aDinero(abonoInicial) > 0 ? '' : ' (opcional)'}
                 </Text>
                 <TextInput
                   style={s.input}
@@ -836,7 +840,7 @@ const VentasScreen = () => {
                   keyboardType="numeric"
                 />
                 <Text style={s.itemSubtotal}>
-                  {fmt(i.precio_unitario * (Number(i.cantidad) || 0))}
+                  {fmt(i.precio_unitario * (aNumero(i.cantidad) || 0))}
                 </Text>
                 <TouchableOpacity
                   onPress={() => quitarItemEdit(i.productos_id)}
@@ -879,7 +883,10 @@ const VentasScreen = () => {
         transparent
         onRequestClose={() => setModalAnular(false)}
       >
-        <View style={s.overlay}>
+        <KeyboardAvoidingView
+          style={s.overlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <View style={s.confirmBox}>
             <Text style={s.confirmTitle}>
               Anular venta #{ventaAnulando?.id}
@@ -914,7 +921,7 @@ const VentasScreen = () => {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

@@ -16,6 +16,8 @@ import client from '../api/client';
 import { getFechaHoyLocal, fmtFecha } from '../utils/date';
 import BotonVerMas from '../components/BotonVerMas';
 import { avisarError } from '../utils/errores';
+import KeyboardView from '../components/KeyboardView';
+import { aDinero } from '../utils/validar';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 
@@ -59,8 +61,8 @@ const DeudasScreen = () => {
       setDeudas(prev => [...prev, ...res.data.data]);
       setPage(siguiente);
       setTotalPages(res.data.meta?.pages ?? 1);
-    } catch {
-      Alert.alert('Error', 'No se pudieron cargar más deudas.');
+    } catch (err) {
+      avisarError(err, 'No se pudieron cargar más deudas.');
     } finally {
       setLoadingMas(false);
     }
@@ -81,8 +83,8 @@ const DeudasScreen = () => {
   };
 
   const registrarAbono = async () => {
-    const m = Number(monto);
-    if (!m || m <= 0) return Alert.alert('Error', 'Ingresa un monto válido.');
+    const m = aDinero(monto);
+    if (!(m > 0)) return Alert.alert('Error', 'Ingresa un monto válido.');
     if (m > deudaSeleccionada.saldo) {
       return Alert.alert(
         'Error',
@@ -196,45 +198,50 @@ const DeudasScreen = () => {
               <Text style={s.close}>✕</Text>
             </TouchableOpacity>
           </View>
-          {deudaSeleccionada && (
-            <ScrollView contentContainerStyle={{ padding: 20 }}>
-              <Text style={s.deudaInfo}>
-                {deudaSeleccionada.clientes?.nombre ||
-                  `Venta #${deudaSeleccionada.id}`}
-              </Text>
-              <Text style={s.deudaSub}>
-                Saldo pendiente: {fmt(deudaSeleccionada.saldo)} de{' '}
-                {fmt(deudaSeleccionada.total)}
-              </Text>
-
-              <Text style={s.fieldLabel}>Monto del abono *</Text>
-              <TextInput
-                style={s.input}
-                value={monto}
-                onChangeText={setMonto}
-                keyboardType="numeric"
-                placeholder="0"
-              />
-
-              <Text style={s.fieldLabel}>Nota (opcional)</Text>
-              <TextInput
-                style={s.input}
-                value={nota}
-                onChangeText={setNota}
-                placeholder="Ej: Pago parcial en efectivo"
-              />
-
-              <TouchableOpacity
-                style={[s.btnGuardar, saving && { opacity: 0.6 }]}
-                onPress={registrarAbono}
-                disabled={saving}
+          <KeyboardView>
+            {deudaSeleccionada && (
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ paddingBottom: 32 }}
               >
-                <Text style={s.btnGuardarText}>
-                  {saving ? 'Guardando...' : 'Registrar abono'}
+                <Text style={s.deudaInfo}>
+                  {deudaSeleccionada.clientes?.nombre ||
+                    `Venta #${deudaSeleccionada.id}`}
                 </Text>
-              </TouchableOpacity>
-            </ScrollView>
-          )}
+                <Text style={s.deudaSub}>
+                  Saldo pendiente: {fmt(deudaSeleccionada.saldo)} de{' '}
+                  {fmt(deudaSeleccionada.total)}
+                </Text>
+
+                <Text style={s.fieldLabel}>Monto del abono *</Text>
+                <TextInput
+                  style={s.input}
+                  value={monto}
+                  onChangeText={setMonto}
+                  keyboardType="numeric"
+                  placeholder="0"
+                />
+
+                <Text style={s.fieldLabel}>Nota (opcional)</Text>
+                <TextInput
+                  style={s.input}
+                  value={nota}
+                  onChangeText={setNota}
+                  placeholder="Ej: Pago parcial en efectivo"
+                />
+
+                <TouchableOpacity
+                  style={[s.btnGuardar, saving && { opacity: 0.6 }]}
+                  onPress={registrarAbono}
+                  disabled={saving}
+                >
+                  <Text style={s.btnGuardarText}>
+                    {saving ? 'Guardando...' : 'Registrar abono'}
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+            )}
+          </KeyboardView>
         </View>
       </Modal>
     </View>
