@@ -18,6 +18,7 @@ import { getRol } from '../store/authStore';
 import FiltroPeriodo from '../components/FiltroPeriodo';
 import BotonVerMas from '../components/BotonVerMas';
 import { coincide } from '../utils/texto';
+import { avisarError } from '../utils/errores';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 
@@ -88,7 +89,9 @@ const CajaScreen = () => {
         setTotalPages(m.data.meta?.pages ?? 1);
         setResumen(r.data.data);
         setInsumos(i.data.data);
-      } catch {}
+      } catch (err) {
+        avisarError(err, 'No se pudo cargar la caja.');
+      }
       const rolGuardado = await getRol();
       setRol(rolGuardado);
       setLoading(false);

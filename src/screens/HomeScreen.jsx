@@ -16,6 +16,7 @@ import {
   getUsuario,
 } from '../store/authStore';
 import FiltroPeriodo from '../components/FiltroPeriodo';
+import { avisarError } from '../utils/errores';
 
 const Card = ({ label, value, color }) => (
   <View style={[s.card, { borderLeftColor: color }]}>
@@ -44,14 +45,18 @@ const HomeScreen = () => {
       }
       const res = await client.get(`/caja/resumen?${params.toString()}`);
       setResumen(res.data.data);
-    } catch {}
+    } catch (err) {
+      avisarError(err, 'No se pudo cargar el resumen.');
+    }
   };
 
   const cargarDeudas = async () => {
     try {
       const res = await client.get('/deudas/resumen');
       setDeudas(res.data.data);
-    } catch {}
+    } catch (err) {
+      avisarError(err, 'No se pudieron cargar las deudas.');
+    }
   };
 
   useEffect(() => {

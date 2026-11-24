@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import client from '../api/client';
 import { getRol } from '../store/authStore';
+import { avisarError } from '../utils/errores';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 
@@ -47,7 +48,9 @@ const ProductosScreen = () => {
       ]);
       setProductos(p.data.data);
       setInsumos(i.data.data);
-    } catch {}
+    } catch (err) {
+      avisarError(err, 'No se pudieron cargar los productos.');
+    }
     const r = await getRol();
     setRol(r);
     setLoading(false);
@@ -170,8 +173,16 @@ const ProductosScreen = () => {
         text: 'Desactivar',
         style: 'destructive',
         onPress: async () => {
-          await client.delete(`/productos/${item.id}`);
-          cargar();
+          try {
+            await client.delete(`/productos/${item.id}`);
+            cargar();
+          } catch (err) {
+            Alert.alert(
+              'Error',
+              err.response?.data?.message ||
+                'No se pudo desactivar el producto.',
+            );
+          }
         },
       },
     ]);

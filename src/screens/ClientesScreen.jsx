@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import client from '../api/client';
 import { coincide } from '../utils/texto';
+import { avisarError } from '../utils/errores';
 
 const ClientesScreen = () => {
   const [clientes, setClientes] = useState([]);
@@ -32,7 +33,9 @@ const ClientesScreen = () => {
     try {
       const r = await client.get('/clientes');
       setClientes(r.data.data);
-    } catch {}
+    } catch (err) {
+      avisarError(err, 'No se pudieron cargar los clientes.');
+    }
     setLoading(false);
   }, []);
 
@@ -81,8 +84,16 @@ const ClientesScreen = () => {
         text: 'Desactivar',
         style: 'destructive',
         onPress: async () => {
-          await client.delete(`/clientes/${item.id}`);
-          cargar();
+          try {
+            await client.delete(`/clientes/${item.id}`);
+            cargar();
+          } catch (err) {
+            Alert.alert(
+              'Error',
+              err.response?.data?.message ||
+                'No se pudo desactivar el cliente.',
+            );
+          }
         },
       },
     ]);

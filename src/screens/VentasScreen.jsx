@@ -19,6 +19,7 @@ import FiltroPeriodo from '../components/FiltroPeriodo';
 import BotonVerMas from '../components/BotonVerMas';
 import SelectorProductoModal from '../components/SelectorProductoModal';
 import { coincide } from '../utils/texto';
+import { avisarError } from '../utils/errores';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 
@@ -89,7 +90,9 @@ const VentasScreen = () => {
         setTotalPages(v.data.meta?.pages ?? 1);
         setProductos(p.data.data);
         setClientes(c.data.data);
-      } catch {}
+      } catch (err) {
+        avisarError(err, 'No se pudieron cargar las ventas.');
+      }
       const r = await getRol();
       setRol(r);
       setLoading(false);

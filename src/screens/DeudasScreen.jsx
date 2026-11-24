@@ -15,6 +15,7 @@ import {
 import client from '../api/client';
 import { getFechaHoyLocal, fmtFecha } from '../utils/date';
 import BotonVerMas from '../components/BotonVerMas';
+import { avisarError } from '../utils/errores';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 
@@ -43,7 +44,9 @@ const DeudasScreen = () => {
       setPage(1);
       setTotalPages(d.data.meta?.pages ?? 1);
       setResumen(r.data.data);
-    } catch {}
+    } catch (err) {
+      avisarError(err, 'No se pudieron cargar las deudas.');
+    }
     setLoading(false);
   }, []);
 

@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import client from '../api/client';
+import { avisarError } from '../utils/errores';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 
@@ -45,7 +46,9 @@ const InsumosScreen = () => {
     try {
       const res = await client.get('/insumos');
       setInsumos(res.data.data);
-    } catch {}
+    } catch (err) {
+      avisarError(err, 'No se pudieron cargar los insumos.');
+    }
     setLoading(false);
   }, []);
 
@@ -109,8 +112,15 @@ const InsumosScreen = () => {
         text: 'Desactivar',
         style: 'destructive',
         onPress: async () => {
-          await client.delete(`/insumos/${item.id}`);
-          cargar();
+          try {
+            await client.delete(`/insumos/${item.id}`);
+            cargar();
+          } catch (err) {
+            Alert.alert(
+              'Error',
+              err.response?.data?.message || 'No se pudo desactivar el insumo.',
+            );
+          }
         },
       },
     ]);

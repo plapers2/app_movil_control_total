@@ -18,6 +18,7 @@ import { getFechaHoyLocal, fmtFecha } from '../utils/date';
 import { getRol } from '../store/authStore';
 import FiltroPeriodo from '../components/FiltroPeriodo';
 import BotonVerMas from '../components/BotonVerMas';
+import { avisarError } from '../utils/errores';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 
@@ -274,7 +275,9 @@ const ProduccionScreen = () => {
         setPage(1);
         setTotalPages(l.data.meta?.pages ?? 1);
         setProductos(p.data.data);
-      } catch {}
+      } catch (err) {
+        avisarError(err, 'No se pudo cargar la producción.');
+      }
       const r = await getRol();
       setRol(r);
       setLoading(false);
