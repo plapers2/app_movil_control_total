@@ -1,97 +1,76 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Control Total
 
-# Getting Started
+App móvil (React Native 0.86) para administrar **Mi Arepita Querida**. Es
+multiempresa y tiene tres niveles de acceso: superadmin, admin y empleado.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## Requisitos
 
-## Step 1: Start Metro
+- Node >= 22.11
+- Entorno de React Native: <https://reactnative.dev/docs/set-up-your-environment>
+- Backend de Control Total (API REST con JWT)
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
-
-To start the Metro dev server, run the following command from the root of your React Native project:
+## Instalación
 
 ```sh
-# Using npm
-npm start
-
-# OR using Yarn
-yarn start
+npm install
+# solo iOS
+cd ios && bundle install && bundle exec pod install && cd ..
 ```
 
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
+## Ejecutar
 
 ```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
-```
-
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
+npm start          # Metro
+npm run android    # en otra terminal
 npm run ios
-
-# OR using Yarn
-yarn ios
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+### Apuntar a un backend local
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+En `src/api/client.js` cambia `API_URL`:
 
-## Step 3: Modify your app
+```js
+// const API_URL = 'https://apicontroltotal.vidriospelaez.com.co/api/'; // Producción
+const API_URL = 'http://10.0.2.2:3000/api/'; // Desarrollo (emulador Android)
+```
 
-Now that you have successfully run the app, let's make changes!
+`10.0.2.2` es el `localhost` del emulador de Android. En iOS usa
+`http://localhost:3000/api/`. **No subas el cambio a producción.**
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+## Scripts
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+| Comando        | Qué hace              |
+| -------------- | --------------------- |
+| `npm test`     | Pruebas con Jest      |
+| `npm run lint` | ESLint                |
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+## Estructura
 
-## Congratulations! :tada:
+```
+src/
+  api/         cliente axios (token e interceptor de sesión expirada)
+  components/  FiltroPeriodo, ModalAnular, FormScroll, KeyboardView, ...
+  navigation/  AppNavigator (Login -> SelectEmpresa -> Main con tabs por rol)
+  screens/     pantallas
+  store/       sesión en AsyncStorage (token, usuario, empresa, rol)
+  theme/       colores
+  utils/       formato, validaciones, fechas, errores, safe area, sesión
+__tests__/     pruebas
+```
 
-You've successfully run and modified your React Native App. :partying_face:
+## Flujo de sesión
 
-### Now what?
+1. `Login`
+2. `CambiarPassword` si la clave es temporal
+3. `SelectEmpresa` (o `Superadmin` si no tiene empresas)
+4. `Main`: tabs según el rol (admin ve Insumos; empleado no)
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+Si el servidor responde 401 (o 403 "Sin acceso a esta empresa") el
+interceptor limpia la sesión y vuelve a `Login`.
 
-# Troubleshooting
+## Convenciones
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+- Fechas en hora de Colombia (UTC-5), ver `src/utils/date.js`.
+- Dinero con `aDinero` (el punto es separador de miles, la coma es decimal) y
+  cantidades con `aNumero`, ver `src/utils/validar.js`.
+- Commits: `fix`, `feat`, `refactor`, `style`, `chore`, `test`, `docs`.

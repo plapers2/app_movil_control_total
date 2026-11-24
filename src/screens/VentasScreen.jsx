@@ -906,12 +906,6 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e5e5',
   },
-  buscadorInput: {
-    flex: 1,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: colors.texto,
-  },
   buscadorIcono: { marginLeft: 8 },
   buscadorLimpiar: { fontSize: 16, color: '#999', padding: 4 },
   btnNew: {
