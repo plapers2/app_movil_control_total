@@ -27,6 +27,17 @@ import { paramsFecha } from '../utils/query';
 import ModalAnular from '../components/ModalAnular';
 import { colors } from '../theme/colors';
 
+const DOMICILIO_DEFECTO = '3000';
+const CANALES = [
+  { val: 'punto_venta', label: 'Punto de venta' },
+  { val: 'domicilio', label: 'Domicilio' },
+];
+const ETIQUETA_CANAL = {
+  punto_venta: 'Punto de venta',
+  domicilio: 'Domicilio',
+  encargo: 'Encargo',
+};
+
 const VentasScreen = () => {
   const [ventas, setVentas] = useState([]);
   const [productos, setProductos] = useState([]);
@@ -44,6 +55,7 @@ const VentasScreen = () => {
   const [ventaEditando, setVentaEditando] = useState(null);
   const [itemsEdit, setItemsEdit] = useState([]);
   const [canalEdit, setCanalEdit] = useState('punto_venta');
+  const [domicilioEdit, setDomicilioEdit] = useState(DOMICILIO_DEFECTO);
   const [modalProductosEdit, setModalProductosEdit] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [modalAnular, setModalAnular] = useState(false);
@@ -63,6 +75,7 @@ const VentasScreen = () => {
   // Form state
   const [items, setItems] = useState([]);
   const [canal, setCanal] = useState('punto_venta');
+  const [domicilio, setDomicilio] = useState(DOMICILIO_DEFECTO);
   const [credito, setCredito] = useState(false);
   const [abonoInicial, setAbonoInicial] = useState('');
   const [modalProductos, setModalProductos] = useState(false);
@@ -202,10 +215,18 @@ const VentasScreen = () => {
     );
   };
 
-  const total = items.reduce(
+  const subtotalItems = items.reduce(
     (s, i) => s + i.precio_unitario * (aNumero(i.cantidad) || 0),
     0,
   );
+  const valorDomicilio =
+    canal === 'domicilio' ? aDinero(domicilio) || 0 : 0;
+  const total = subtotalItems + valorDomicilio;
+
+  const elegirCanal = val => {
+    setCanal(val);
+    if (val === 'domicilio') setDomicilio(DOMICILIO_DEFECTO);
+  };
 
   const guardar = async () => {
     if (!items.length)
@@ -215,6 +236,8 @@ const VentasScreen = () => {
         'Error',
         'Revisa las cantidades, deben ser mayores a 0.',
       );
+    if (canal === 'domicilio' && !(aDinero(domicilio) >= 0))
+      return Alert.alert('Error', 'El valor del domicilio no es válido.');
     if (credito && !clienteSeleccionado)
       return Alert.alert(
         'Error',
@@ -230,6 +253,7 @@ const VentasScreen = () => {
       await client.post('/ventas', {
         fecha: getFechaHoyLocal(),
         canal,
+        valor_domicilio: canal === 'domicilio' ? aDinero(domicilio) : 0,
         clientes_id: clienteSeleccionado?.id ?? null,
         credito,
         abono_inicial: credito ? aNumero(abonoInicial || 0) : undefined,
@@ -244,6 +268,8 @@ const VentasScreen = () => {
       setClienteSeleccionado(null);
       setCredito(false);
       setAbonoInicial('');
+      setCanal('punto_venta');
+      setDomicilio(DOMICILIO_DEFECTO);
       cargar();
     } catch (err) {
       Alert.alert('Error', err.response?.data?.message || 'Error al guardar.');
@@ -268,6 +294,11 @@ const VentasScreen = () => {
       const v = res.data.data;
       setVentaEditando(v);
       setCanalEdit(v.canal);
+      setDomicilioEdit(
+        v.canal === 'domicilio'
+          ? String(aNumero(v.valor_domicilio))
+          : DOMICILIO_DEFECTO,
+      );
       setItemsEdit(
         v.ventas_items.map(vi => ({
           productos_id: vi.productos_id,
@@ -315,10 +346,20 @@ const VentasScreen = () => {
     );
   };
 
-  const totalEdit = itemsEdit.reduce(
-    (s, i) => s + i.precio_unitario * (aNumero(i.cantidad) || 0),
-    0,
-  );
+  const valorDomicilioEdit =
+    canalEdit === 'domicilio' ? aDinero(domicilioEdit) || 0 : 0;
+  const totalEdit =
+    itemsEdit.reduce(
+      (s, i) => s + i.precio_unitario * (aNumero(i.cantidad) || 0),
+      0,
+    ) + valorDomicilioEdit;
+
+  const elegirCanalEdit = val => {
+    // Al pasar a domicilio desde otro canal se propone el valor por defecto
+    if (val === 'domicilio' && canalEdit !== 'domicilio')
+      setDomicilioEdit(DOMICILIO_DEFECTO);
+    setCanalEdit(val);
+  };
 
   const guardarEdicion = async () => {
     if (!itemsEdit.length)
@@ -328,10 +369,14 @@ const VentasScreen = () => {
         'Error',
         'Revisa las cantidades, deben ser mayores a 0.',
       );
+    if (canalEdit === 'domicilio' && !(aDinero(domicilioEdit) >= 0))
+      return Alert.alert('Error', 'El valor del domicilio no es válido.');
     try {
       setSavingEdit(true);
       await client.put(`/ventas/${ventaEditando.id}`, {
         canal: canalEdit,
+        valor_domicilio:
+          canalEdit === 'domicilio' ? aDinero(domicilioEdit) : 0,
         notas: ventaEditando.notas,
         items: itemsEdit.map(({ productos_id, cantidad, precio_unitario }) => ({
           productos_id,
@@ -425,7 +470,11 @@ const VentasScreen = () => {
               <Text style={s.cardTotal}>{fmt(item.total)}</Text>
             </View>
             <Text style={s.cardSub}>
-              {fmtFecha(item.fecha)} · {item.canal}
+              {fmtFecha(item.fecha)} ·{' '}
+              {ETIQUETA_CANAL[item.canal] || item.canal}
+              {Number(item.valor_domicilio) > 0
+                ? ` (domicilio ${fmt(item.valor_domicilio)})`
+                : ''}
             </Text>
             {item.clientes && (
               <Text style={s.cardCliente}>👤 {item.clientes.nombre}</Text>
@@ -509,6 +558,38 @@ const VentasScreen = () => {
               </>
             )}
 
+            <Text style={s.sectionLabel}>Tipo de venta</Text>
+            <View style={s.toggle}>
+              {CANALES.map(opt => (
+                <TouchableOpacity
+                  key={opt.val}
+                  style={[s.toggleBtn, canal === opt.val && s.toggleActive]}
+                  onPress={() => elegirCanal(opt.val)}
+                >
+                  <Text
+                    style={[
+                      s.toggleText,
+                      canal === opt.val && s.toggleTextActive,
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {canal === 'domicilio' && (
+              <View style={s.field}>
+                <Text style={s.fieldLabel}>Valor del domicilio</Text>
+                <TextInput
+                  style={s.input}
+                  value={domicilio}
+                  onChangeText={setDomicilio}
+                  keyboardType="numeric"
+                  placeholder="3000"
+                />
+              </View>
+            )}
+
             <Text style={s.sectionLabel}>
               Cliente{credito ? '' : ' (opcional)'}
             </Text>
@@ -569,6 +650,12 @@ const VentasScreen = () => {
               </View>
             )}
 
+            {items.length > 0 && valorDomicilio > 0 && (
+              <Text style={s.cardSub}>
+                Productos {fmt(subtotalItems)} + domicilio{' '}
+                {fmt(valorDomicilio)}
+              </Text>
+            )}
             {items.length > 0 && (
               <View style={s.totalRow}>
                 <Text style={s.totalLabel}>Total</Text>
@@ -618,9 +705,19 @@ const VentasScreen = () => {
                 </Text>
               </View>
               <View style={s.detalleSeccion}>
-                <Text style={s.detalleLabel}>Canal</Text>
-                <Text style={s.detalleValor}>{ventaDetalle.canal}</Text>
+                <Text style={s.detalleLabel}>Tipo de venta</Text>
+                <Text style={s.detalleValor}>
+                  {ETIQUETA_CANAL[ventaDetalle.canal] || ventaDetalle.canal}
+                </Text>
               </View>
+              {Number(ventaDetalle.valor_domicilio) > 0 && (
+                <View style={s.detalleSeccion}>
+                  <Text style={s.detalleLabel}>Domicilio</Text>
+                  <Text style={s.detalleValor}>
+                    {fmt(ventaDetalle.valor_domicilio)}
+                  </Text>
+                </View>
+              )}
               {ventaDetalle.clientes && (
                 <View style={s.detalleSeccion}>
                   <Text style={s.detalleLabel}>Cliente</Text>
@@ -787,14 +884,11 @@ const VentasScreen = () => {
 
             <Text style={s.sectionLabel}>Canal</Text>
             <View style={s.toggle}>
-              {[
-                { val: 'punto_venta', label: 'Punto de venta' },
-                { val: 'domicilio', label: 'Domicilio' },
-              ].map(opt => (
+              {CANALES.map(opt => (
                 <TouchableOpacity
                   key={opt.val}
                   style={[s.toggleBtn, canalEdit === opt.val && s.toggleActive]}
-                  onPress={() => setCanalEdit(opt.val)}
+                  onPress={() => elegirCanalEdit(opt.val)}
                 >
                   <Text
                     style={[
@@ -807,6 +901,19 @@ const VentasScreen = () => {
                 </TouchableOpacity>
               ))}
             </View>
+
+            {canalEdit === 'domicilio' && (
+              <View style={s.field}>
+                <Text style={s.fieldLabel}>Valor del domicilio</Text>
+                <TextInput
+                  style={s.input}
+                  value={domicilioEdit}
+                  onChangeText={setDomicilioEdit}
+                  keyboardType="numeric"
+                  placeholder="3000"
+                />
+              </View>
+            )}
 
             <Text style={s.sectionLabel}>Agregar producto</Text>
             <TouchableOpacity
