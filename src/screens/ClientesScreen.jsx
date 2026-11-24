@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import client from '../api/client';
+import { getRol } from '../store/authStore';
 import { coincide } from '../utils/texto';
 import { avisarError } from '../utils/errores';
 import FormScroll from '../components/FormScroll';
@@ -25,6 +26,8 @@ const ClientesScreen = () => {
   const [modal, setModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editando, setEditando] = useState(null);
+  const [rol, setRol] = useState(null);
+  const esAdmin = rol === 'admin';
   const [form, setForm] = useState({
     nombre: '',
     telefono: '',
@@ -33,6 +36,7 @@ const ClientesScreen = () => {
   });
 
   const cargar = useCallback(async () => {
+    getRol().then(setRol);
     try {
       const r = await client.get('/clientes');
       setClientes(r.data.data);
@@ -168,14 +172,16 @@ const ClientesScreen = () => {
                   <Text style={s.cardSub}>📍 {item.direccion}</Text>
                 ) : null}
               </View>
-              <View style={s.actions}>
-                <TouchableOpacity onPress={() => abrirEditar(item)}>
-                  <Text style={s.icon}>✏️</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => eliminar(item)}>
-                  <Text style={s.icon}>🗑</Text>
-                </TouchableOpacity>
-              </View>
+              {esAdmin && (
+                <View style={s.actions}>
+                  <TouchableOpacity onPress={() => abrirEditar(item)}>
+                    <Text style={s.icon}>✏️</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => eliminar(item)}>
+                    <Text style={s.icon}>🗑</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
             {item.notas ? <Text style={s.notas}>💬 {item.notas}</Text> : null}
           </View>
