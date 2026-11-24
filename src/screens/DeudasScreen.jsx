@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import client from '../api/client';
 import { getFechaHoyLocal, fmtFecha } from '../utils/date';
-import BotonVerMas from '../components/BotonVerMas';
 import { avisarError } from '../utils/errores';
 import KeyboardView from '../components/KeyboardView';
 import { aDinero } from '../utils/validar';
@@ -24,50 +23,30 @@ import { colors } from '../theme/colors';
 
 const DeudasScreen = () => {
   const navigation = useNavigation();
-  const [deudas, setDeudas] = useState([]);
+  const [clientes, setClientes] = useState([]);
   const [resumen, setResumen] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [loadingMas, setLoadingMas] = useState(false);
 
-  const [deudaSeleccionada, setDeudaSeleccionada] = useState(null);
   const [modal, setModal] = useState(false);
+  const [detalle, setDetalle] = useState(null);
+  const [cargandoDetalle, setCargandoDetalle] = useState(false);
   const [monto, setMonto] = useState('');
   const [nota, setNota] = useState('');
   const [saving, setSaving] = useState(false);
 
   const cargar = useCallback(async () => {
     try {
-      const [d, r] = await Promise.all([
-        client.get('/deudas?page=1&limit=10'),
+      const [c, r] = await Promise.all([
+        client.get('/deudas/clientes'),
         client.get('/deudas/resumen'),
       ]);
-      setDeudas(d.data.data);
-      setPage(1);
-      setTotalPages(d.data.meta?.pages ?? 1);
+      setClientes(c.data.data);
       setResumen(r.data.data);
     } catch (err) {
       avisarError(err, 'No se pudieron cargar las deudas.');
     }
     setLoading(false);
   }, []);
-
-  const verMas = async () => {
-    if (page >= totalPages) return;
-    try {
-      setLoadingMas(true);
-      const siguiente = page + 1;
-      const res = await client.get(`/deudas?page=${siguiente}&limit=10`);
-      setDeudas(prev => [...prev, ...res.data.data]);
-      setPage(siguiente);
-      setTotalPages(res.data.meta?.pages ?? 1);
-    } catch (err) {
-      avisarError(err, 'No se pudieron cargar más deudas.');
-    } finally {
-      setLoadingMas(false);
-    }
-  };
 
   useFocusEffect(
     useCallback(() => {
@@ -76,33 +55,69 @@ const DeudasScreen = () => {
     }, [cargar]),
   );
 
-  const abrirAbono = deuda => {
-    setDeudaSeleccionada(deuda);
+  const abrirCliente = async c => {
     setMonto('');
     setNota('');
+    setDetalle(null);
     setModal(true);
+    setCargandoDetalle(true);
+    try {
+      const res = await client.get(`/deudas/clientes/${c.clientes_id ?? 0}`);
+      setDetalle(res.data.data);
+    } catch (err) {
+      setModal(false);
+      avisarError(err, 'No se pudo cargar el detalle de la deuda.');
+    } finally {
+      setCargandoDetalle(false);
+    }
   };
 
+  // Vista previa de cómo se reparte el abono: de la compra más vieja a la más reciente
+  const m = aDinero(monto);
+  const reparto = (() => {
+    if (!detalle || !(m > 0)) return [];
+    let restante = Math.round(m * 100);
+    const out = [];
+    for (const v of detalle.ventas) {
+      if (restante <= 0) break;
+      const saldo = Math.round(v.saldo * 100);
+      const aplica = Math.min(restante, saldo);
+      out.push({ id: v.id, monto: aplica / 100, salda: aplica === saldo });
+      restante -= aplica;
+    }
+    return out;
+  })();
+
   const registrarAbono = async () => {
-    const m = aDinero(monto);
     if (!(m > 0)) return Alert.alert('Error', 'Ingresa un monto válido.');
-    if (m > deudaSeleccionada.saldo) {
+    if (m > detalle.totalDeuda)
       return Alert.alert(
         'Error',
-        `El abono no puede ser mayor al saldo pendiente (${fmt(
-          deudaSeleccionada.saldo,
+        `El abono no puede ser mayor a la deuda total (${fmt(
+          detalle.totalDeuda,
         )}).`,
       );
-    }
     try {
       setSaving(true);
-      await client.post(`/deudas/${deudaSeleccionada.id}/pagos`, {
-        monto: m,
-        nota,
-        fecha: getFechaHoyLocal(),
-      });
+      const res = await client.post(
+        `/deudas/clientes/${detalle.cliente.id ?? 0}/pagos`,
+        { monto: m, nota, fecha: getFechaHoyLocal() },
+      );
+      const aplicados = res.data.data.aplicados || [];
       setModal(false);
+      setDetalle(null);
       cargar();
+      Alert.alert(
+        'Abono registrado',
+        aplicados
+          .map(
+            a =>
+              `• Venta #${a.ventas_id}: ${fmt(a.monto)}${
+                a.estado_pago === 'pagada' ? ' (saldada)' : ''
+              }`,
+          )
+          .join('\n'),
+      );
     } catch (err) {
       Alert.alert(
         'Error',
@@ -135,7 +150,8 @@ const DeudasScreen = () => {
           <Text style={s.resumenLabel}>Total por cobrar</Text>
           <Text style={s.resumenValor}>{fmt(resumen.totalPorCobrar)}</Text>
           <Text style={s.resumenSub}>
-            {resumen.cantidadVentas} venta
+            {clientes.length} cliente{clientes.length === 1 ? '' : 's'} ·{' '}
+            {resumen.cantidadVentas} compra
             {resumen.cantidadVentas === 1 ? '' : 's'} pendiente
             {resumen.cantidadVentas === 1 ? '' : 's'}
           </Text>
@@ -143,48 +159,25 @@ const DeudasScreen = () => {
       )}
 
       <FlatList
-        data={deudas}
-        keyExtractor={item => String(item.id)}
+        data={clientes}
+        keyExtractor={item => String(item.clientes_id ?? 0)}
         contentContainerStyle={{ padding: 16 }}
         ListEmptyComponent={
           <Text style={s.empty}>No hay deudas pendientes 🎉</Text>
         }
         renderItem={({ item }) => (
-          <TouchableOpacity style={s.card} onPress={() => abrirAbono(item)}>
+          <TouchableOpacity style={s.card} onPress={() => abrirCliente(item)}>
             <View style={s.cardRow}>
-              <Text style={s.cardTitle}>
-                {item.clientes ? item.clientes.nombre : `Venta #${item.id}`}
-              </Text>
-              <Text style={s.cardSaldo}>{fmt(item.saldo)}</Text>
+              <Text style={s.cardTitle}>{item.nombre}</Text>
+              <Text style={s.cardSaldo}>{fmt(item.totalDeuda)}</Text>
             </View>
             <Text style={s.cardSub}>
-              Venta #{item.id} · {fmtFecha(item.fecha)}
+              {item.cantidadVentas} compra
+              {item.cantidadVentas === 1 ? '' : 's'} en deuda · la más antigua
+              del {fmtFecha(item.masAntigua)}
             </Text>
-            <View style={s.cardRow2}>
-              <Text style={s.cardMeta}>Total: {fmt(item.total)}</Text>
-              <Text style={s.cardMeta}>Abonado: {fmt(item.pagado)}</Text>
-            </View>
-            <View
-              style={[
-                s.badge,
-                item.estado_pago === 'parcial'
-                  ? s.badgeParcial
-                  : s.badgePendiente,
-              ]}
-            >
-              <Text style={s.badgeText}>
-                {item.estado_pago === 'parcial' ? 'Parcial' : 'Pendiente'}
-              </Text>
-            </View>
           </TouchableOpacity>
         )}
-        ListFooterComponent={
-          <BotonVerMas
-            onPress={verMas}
-            loading={loadingMas}
-            visible={page < totalPages}
-          />
-        }
       />
 
       <Modal
@@ -194,27 +187,56 @@ const DeudasScreen = () => {
       >
         <View style={s.modal}>
           <View style={s.modalHeader}>
-            <Text style={s.modalTitle}>Registrar abono</Text>
+            <Text style={s.modalTitle}>Deuda del cliente</Text>
             <TouchableOpacity onPress={() => setModal(false)}>
               <Text style={s.close}>✕</Text>
             </TouchableOpacity>
           </View>
-          <KeyboardView>
-            {deudaSeleccionada && (
+
+          {cargandoDetalle && (
+            <ActivityIndicator
+              size="large"
+              color={colors.primary}
+              style={{ marginTop: 40 }}
+            />
+          )}
+
+          {detalle && (
+            <KeyboardView>
               <ScrollView
                 keyboardShouldPersistTaps="handled"
                 contentContainerStyle={{ padding: 20, paddingBottom: 32 }}
               >
-                <Text style={s.deudaInfo}>
-                  {deudaSeleccionada.clientes?.nombre ||
-                    `Venta #${deudaSeleccionada.id}`}
-                </Text>
+                <Text style={s.deudaInfo}>{detalle.cliente.nombre}</Text>
                 <Text style={s.deudaSub}>
-                  Saldo pendiente: {fmt(deudaSeleccionada.saldo)} de{' '}
-                  {fmt(deudaSeleccionada.total)}
+                  Debe en total {fmt(detalle.totalDeuda)} en{' '}
+                  {detalle.ventas.length} compra
+                  {detalle.ventas.length === 1 ? '' : 's'}
                 </Text>
 
-                <Text style={s.fieldLabel}>Monto del abono *</Text>
+                {detalle.ventas.map(v => (
+                  <View key={v.id} style={s.ventaBox}>
+                    <View style={s.cardRow}>
+                      <Text style={s.cardTitle}>Venta #{v.id}</Text>
+                      <Text style={s.cardSaldo}>{fmt(v.saldo)}</Text>
+                    </View>
+                    <Text style={s.cardSub}>
+                      {fmtFecha(v.fecha)} · Total {fmt(v.total)} · Abonado{' '}
+                      {fmt(v.pagado)}
+                    </Text>
+                    {v.ventas_items.map(i => (
+                      <Text key={i.id} style={s.cardMeta}>
+                        • {i.productos?.nombre} x{i.cantidad} —{' '}
+                        {fmt(i.subtotal)}
+                      </Text>
+                    ))}
+                  </View>
+                ))}
+
+                <Text style={s.fieldLabel}>Abono general *</Text>
+                <Text style={s.ayuda}>
+                  Se descuenta de la deuda más vieja a la más reciente.
+                </Text>
                 <TextInput
                   style={s.input}
                   value={monto}
@@ -222,6 +244,18 @@ const DeudasScreen = () => {
                   keyboardType="numeric"
                   placeholder="0"
                 />
+
+                {reparto.length > 0 && (
+                  <View style={s.previewBox}>
+                    <Text style={s.previewTitulo}>Se aplicará así:</Text>
+                    {reparto.map(r => (
+                      <Text key={r.id} style={s.previewLinea}>
+                        Venta #{r.id}: {fmt(r.monto)}
+                        {r.salda ? ' ✓ queda saldada' : ''}
+                      </Text>
+                    ))}
+                  </View>
+                )}
 
                 <Text style={s.fieldLabel}>Nota (opcional)</Text>
                 <TextInput
@@ -241,8 +275,8 @@ const DeudasScreen = () => {
                   </Text>
                 </TouchableOpacity>
               </ScrollView>
-            )}
-          </KeyboardView>
+            </KeyboardView>
+          )}
         </View>
       </Modal>
     </View>
@@ -287,25 +321,28 @@ const s = StyleSheet.create({
     elevation: 1,
   },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  cardRow2: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 4,
-  },
   cardTitle: { fontWeight: '700', fontSize: 15, color: colors.texto },
   cardSaldo: { fontWeight: '700', fontSize: 15, color: colors.primary },
   cardSub: { color: colors.textoSuave, fontSize: 12, marginTop: 2 },
   cardMeta: { fontSize: 12, color: '#666' },
-  badge: {
-    alignSelf: 'flex-start',
-    marginTop: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 12,
-  },
-  badgePendiente: { backgroundColor: '#FCE4E4' },
-  badgeParcial: { backgroundColor: '#FFF3CD' },
   badgeText: { fontSize: 11, fontWeight: '700', color: '#555' },
+  ventaBox: {
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+    backgroundColor: '#fafafa',
+  },
+  ayuda: { fontSize: 12, color: '#aaa', marginBottom: 6 },
+  previewBox: {
+    backgroundColor: '#EAF8EE',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 10,
+  },
+  previewTitulo: { fontSize: 12, fontWeight: '700', color: colors.texto },
+  previewLinea: { fontSize: 13, color: colors.texto, marginTop: 2 },
   modal: { flex: 1, backgroundColor: '#fff', paddingBottom: BOTTOM_INSET },
   modalHeader: {
     flexDirection: 'row',
@@ -319,7 +356,12 @@ const s = StyleSheet.create({
   modalTitle: { fontSize: 20, fontWeight: 'bold' },
   close: { fontSize: 20, color: colors.textoSuave },
   deudaInfo: { fontSize: 16, fontWeight: '700', color: colors.texto },
-  deudaSub: { fontSize: 13, color: colors.textoSuave, marginTop: 4, marginBottom: 16 },
+  deudaSub: {
+    fontSize: 13,
+    color: colors.textoSuave,
+    marginTop: 4,
+    marginBottom: 16,
+  },
   fieldLabel: {
     fontSize: 13,
     color: colors.textoSuave,
