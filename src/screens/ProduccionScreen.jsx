@@ -417,14 +417,32 @@ const ProduccionScreen = () => {
       // Solo soporta editar lotes de un solo item (que es como se crean hoy)
       const item = l.lotes_produccion_items?.[0];
       setCantidadEdit(item ? String(item.cantidad) : '1');
-      setInsumosEdit(
-        (l.movimientos_insumos || []).map(m => ({
-          insumos_id: m.insumos_id,
-          nombre: m.insumos?.nombre || '',
-          unidad: m.insumos?.unidad_medida || '',
-          cantidad: String(m.cantidad),
-        })),
+      // Receta actual del producto: sirve para recalcular al cambiar unidades
+      const recetaProd =
+        productos.find(p => p.id === item?.productos_id)?.recetas || [];
+      const filaDe = (insumos_id, insumo, cantidad, yaUsado) => {
+        const r = recetaProd.find(x => x.insumos_id === insumos_id);
+        return {
+          insumos_id,
+          nombre: insumo?.nombre || '',
+          unidad: insumo?.unidad_medida || '',
+          cantidad: fmtCant(cantidad),
+          // Disponible real para este lote: stock actual + lo que ya descontó
+          disponible: Number(insumo?.stock_actual ?? 0) + yaUsado,
+          base: r ? Number(r.cantidad) : null,
+        };
+      };
+      const filas = (l.movimientos_insumos || []).map(m =>
+        filaDe(m.insumos_id, m.insumos, Number(m.cantidad), Number(m.cantidad)),
       );
+      // Insumos de la receta que el lote no usó (cantidad 0): se ofrecen en 0
+      if (filas.length > 0) {
+        recetaProd.forEach(r => {
+          if (!filas.some(f => f.insumos_id === r.insumos_id))
+            filas.push(filaDe(r.insumos_id, r.insumos, 0, 0));
+        });
+      }
+      setInsumosEdit(filas);
       // Si el item no tiene insumos asociados, es un producto sin receta:
       // precargamos el costo total actual (costo_unitario × cantidad) para
       // que se pueda corregir.
@@ -445,12 +463,51 @@ const ProduccionScreen = () => {
     );
   };
 
+  // Al cambiar las unidades, recalcula cada insumo con base en la receta.
+  // Los que no están en la receta actual conservan su cantidad.
+  const aplicarReceta = (unidades, lista) => {
+    const n = aNumero(unidades);
+    if (!(n > 0)) return lista;
+    return lista.map(i =>
+      i.base != null ? { ...i, cantidad: fmtCant(i.base * n) } : i,
+    );
+  };
+
+  const cambiarCantidadEdit = v => {
+    setCantidadEdit(v);
+    setInsumosEdit(prev => aplicarReceta(v, prev));
+  };
+
+  // Vuelve a los valores de la receta si se editaron a mano
+  const recalcularEdit = () =>
+    setInsumosEdit(prev => aplicarReceta(cantidadEdit, prev));
+
+  // Lo que se va a usar frente al stock disponible para este lote
+  const insumosEditConStock = insumosEdit.map(i => {
+    const usado = aNumero(i.cantidad) || 0;
+    return { ...i, falta: Math.max(0, +(usado - i.disponible).toFixed(3)) };
+  });
+  const faltantesEdit = insumosEditConStock.filter(i => i.falta > 0);
+  const maxProducibleEdit = insumosEdit
+    .filter(i => i.base > 0)
+    .reduce(
+      (min, i) => Math.min(min, Math.floor(i.disponible / i.base)),
+      Infinity,
+    );
+
   const guardarEdicion = async () => {
     const cantNum = aNumero(cantidadEdit);
     if (!cantNum || cantNum <= 0)
       return Alert.alert('Error', 'La cantidad debe ser mayor a 0.');
-    if (insumosEdit.some(i => i.cantidad !== '' && aNumero(i.cantidad) < 0))
+    if (insumosEdit.some(i => i.cantidad !== '' && !(aNumero(i.cantidad) >= 0)))
       return Alert.alert('Error', 'Revisa las cantidades de los insumos.');
+    if (faltantesEdit.length > 0)
+      return Alert.alert(
+        'Insumos insuficientes',
+        faltantesEdit
+          .map(i => `• ${i.nombre}: faltan ${fmtCant(i.falta)} ${i.unidad}`)
+          .join('\n'),
+      );
 
     const item = loteEditando.lotes_produccion_items?.[0];
     const sinRecetaEdit = insumosEdit.length === 0;
@@ -776,7 +833,10 @@ const ProduccionScreen = () => {
             </TouchableOpacity>
           </View>
           <KeyboardView>
-            <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: 20 }}
+            >
               <View style={s.productoSeleccionado}>
                 <Text style={s.productoSeleccionadoNombre}>
                   {loteEditando?.lotes_produccion_items?.[0]?.productos?.nombre}
@@ -788,7 +848,7 @@ const ProduccionScreen = () => {
                 <TextInput
                   style={s.input}
                   value={cantidadEdit}
-                  onChangeText={setCantidadEdit}
+                  onChangeText={cambiarCantidadEdit}
                   keyboardType="numeric"
                 />
               </View>
@@ -796,10 +856,55 @@ const ProduccionScreen = () => {
               {insumosEdit.length > 0 ? (
                 <>
                   <Text style={s.sectionLabel}>Insumos utilizados</Text>
-                  {insumosEdit.map((item, idx) => (
+                  <Text style={s.sectionHint}>
+                    Se recalculan con la receta al cambiar las unidades; puedes
+                    ajustarlos a mano. El disponible incluye lo que este lote ya
+                    descontó.
+                  </Text>
+                  {Number.isFinite(maxProducibleEdit) && (
+                    <View
+                      style={[
+                        s.capacidadBox,
+                        maxProducibleEdit < 1 && s.capacidadBoxMal,
+                      ]}
+                    >
+                      <Text style={s.capacidadText}>
+                        {maxProducibleEdit < 1
+                          ? 'Con el stock disponible no alcanza para producir una unidad.'
+                          : `Con el stock disponible alcanzan para ${maxProducibleEdit} unidad${
+                              maxProducibleEdit === 1 ? '' : 'es'
+                            }.`}
+                      </Text>
+                    </View>
+                  )}
+                  {insumosEdit.some(i => i.base != null) && (
+                    <TouchableOpacity onPress={recalcularEdit}>
+                      <Text style={s.linkRecalcular}>
+                        ↻ Recalcular según la receta
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  {insumosEditConStock.map((item, idx) => (
                     <View key={item.insumos_id} style={s.insumoRow}>
                       <View style={{ flex: 1 }}>
                         <Text style={s.insumoNombre}>{item.nombre}</Text>
+                        {item.base != null && (
+                          <Text style={s.insumoBase}>
+                            Base receta: {fmtCant(item.base)} {item.unidad} ×{' '}
+                            {cantidadEdit || 1}
+                          </Text>
+                        )}
+                        <Text
+                          style={[
+                            s.insumoDisp,
+                            item.falta > 0 && s.insumoFalta,
+                          ]}
+                        >
+                          Disponible: {fmtCant(item.disponible)} {item.unidad}
+                          {item.falta > 0
+                            ? ` · faltan ${fmtCant(item.falta)}`
+                            : ''}
+                        </Text>
                       </View>
                       <TextInput
                         style={s.cantInput}
@@ -1039,6 +1144,13 @@ const s = StyleSheet.create({
   },
   capacidadBoxMal: { backgroundColor: '#FFF0F0' },
   capacidadText: { fontSize: 13, color: colors.texto },
+  linkRecalcular: {
+    color: colors.azul,
+    fontSize: 13,
+    fontWeight: '600',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+  },
   cantInput: {
     borderWidth: 1,
     borderColor: colors.borde,
