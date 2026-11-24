@@ -23,6 +23,7 @@ import CajaScreen from '../screens/CajaScreen';
 import DeudasScreen from '../screens/DeudasScreen';
 import UsuariosScreen from '../screens/UsuariosScreen';
 import NuevaEmpresaScreen from '../screens/NuevaEmpresaScreen';
+import ServiciosPublicosScreen from '../screens/ServiciosPublicosScreen';
 import { colors } from '../theme/colors';
 
 const Stack = createNativeStackNavigator();
@@ -188,6 +189,7 @@ const AppNavigator = () => {
           <Stack.Screen name="SelectEmpresa" component={SelectEmpresaScreen} />
           <Stack.Screen name="Main" component={MainTabs} />
           <Stack.Screen name="Deudas" component={DeudasScreen} />
+          <Stack.Screen name="ServiciosPublicos" component={ServiciosPublicosScreen} />
           <Stack.Screen
             name="ClientesInactivos"
             component={ClientesInactivosScreen}
