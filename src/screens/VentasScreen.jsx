@@ -24,6 +24,7 @@ import { coincide } from '../utils/texto';
 import { avisarError } from '../utils/errores';
 import KeyboardView from '../components/KeyboardView';
 import { aDinero, aNumero } from '../utils/validar';
+import { HEADER_TOP, BOTTOM_INSET } from '../utils/safeArea';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 
@@ -935,7 +936,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    paddingTop: 50,
+    paddingTop: HEADER_TOP,
     backgroundColor: '#fff',
   },
   title: { fontSize: 22, fontWeight: 'bold', color: '#333' },
@@ -978,13 +979,13 @@ const s = StyleSheet.create({
   cardTotal: { fontWeight: '700', fontSize: 15, color: '#2DC653' },
   cardSub: { color: '#888', fontSize: 12, marginTop: 2, marginBottom: 6 },
   cardItem: { color: '#555', fontSize: 13 },
-  modal: { flex: 1, backgroundColor: '#fff' },
+  modal: { flex: 1, backgroundColor: '#fff', paddingBottom: BOTTOM_INSET },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    paddingTop: 50,
+    paddingTop: HEADER_TOP,
     borderBottomWidth: 1,
     borderColor: '#eee',
   },

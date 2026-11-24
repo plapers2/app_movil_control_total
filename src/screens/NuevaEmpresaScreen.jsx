@@ -11,6 +11,7 @@ import {
 import client from '../api/client';
 import CredencialesModal from '../components/CredencialesModal';
 import KeyboardView from '../components/KeyboardView';
+import { HEADER_TOP } from '../utils/safeArea';
 
 const NuevaEmpresaScreen = ({ navigation }) => {
   const [nombre, setNombre] = useState('');
@@ -218,7 +219,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    paddingTop: 50,
+    paddingTop: HEADER_TOP,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderColor: '#eee',

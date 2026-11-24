@@ -12,6 +12,7 @@ import {
 import client from '../api/client';
 import FiltroPeriodo from '../components/FiltroPeriodo';
 import { avisarError } from '../utils/errores';
+import { HEADER_TOP } from '../utils/safeArea';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 const fmtPct = n => `${(Number(n || 0) * 100).toFixed(1)}%`;
@@ -204,7 +205,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    paddingTop: 50,
+    paddingTop: HEADER_TOP,
     backgroundColor: '#fff',
   },
   backBtn: { width: 60 },

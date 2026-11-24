@@ -18,6 +18,7 @@ import BotonVerMas from '../components/BotonVerMas';
 import { avisarError } from '../utils/errores';
 import KeyboardView from '../components/KeyboardView';
 import { aDinero } from '../utils/validar';
+import { HEADER_TOP, BOTTOM_INSET } from '../utils/safeArea';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 
@@ -256,7 +257,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    paddingTop: 50,
+    paddingTop: HEADER_TOP,
     backgroundColor: '#fff',
   },
   backBtn: { width: 60 },
@@ -305,13 +306,13 @@ const s = StyleSheet.create({
   badgePendiente: { backgroundColor: '#FCE4E4' },
   badgeParcial: { backgroundColor: '#FFF3CD' },
   badgeText: { fontSize: 11, fontWeight: '700', color: '#555' },
-  modal: { flex: 1, backgroundColor: '#fff' },
+  modal: { flex: 1, backgroundColor: '#fff', paddingBottom: BOTTOM_INSET },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    paddingTop: 50,
+    paddingTop: HEADER_TOP,
     borderBottomWidth: 1,
     borderColor: '#eee',
   },

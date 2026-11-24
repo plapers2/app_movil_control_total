@@ -13,6 +13,7 @@ import {
 import client from '../api/client';
 import { clearSession } from '../store/authStore';
 import CredencialesModal from '../components/CredencialesModal';
+import { HEADER_TOP } from '../utils/safeArea';
 
 const SuperadminScreen = ({ navigation }) => {
   const [empresas, setEmpresas] = useState([]);
@@ -194,7 +195,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    paddingTop: 50,
+    paddingTop: HEADER_TOP,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderColor: '#eee',

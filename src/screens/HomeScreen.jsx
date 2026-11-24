@@ -17,6 +17,7 @@ import {
 } from '../store/authStore';
 import FiltroPeriodo from '../components/FiltroPeriodo';
 import { avisarError } from '../utils/errores';
+import { HEADER_TOP } from '../utils/safeArea';
 
 const Card = ({ label, value, color }) => (
   <View style={[s.card, { borderLeftColor: color }]}>
@@ -225,7 +226,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    paddingTop: 50,
+    paddingTop: HEADER_TOP,
     backgroundColor: '#fff',
   },
   greeting: { fontSize: 14, color: '#888' },

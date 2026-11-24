@@ -23,6 +23,7 @@ import { coincide } from '../utils/texto';
 import { avisarError } from '../utils/errores';
 import KeyboardView from '../components/KeyboardView';
 import { aNumero, aDinero } from '../utils/validar';
+import { HEADER_TOP, BOTTOM_INSET } from '../utils/safeArea';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 
@@ -935,7 +936,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    paddingTop: 50,
+    paddingTop: HEADER_TOP,
     backgroundColor: '#fff',
   },
   balanceActualCard: {
@@ -1004,13 +1005,13 @@ const s = StyleSheet.create({
   cardMonto: { fontSize: 15, fontWeight: 'bold' },
   ingreso: { color: '#2DC653' },
   gasto: { color: '#E63946' },
-  modal: { flex: 1, backgroundColor: '#fff' },
+  modal: { flex: 1, backgroundColor: '#fff', paddingBottom: BOTTOM_INSET },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    paddingTop: 50,
+    paddingTop: HEADER_TOP,
     borderBottomWidth: 1,
     borderColor: '#eee',
   },

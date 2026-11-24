@@ -17,6 +17,7 @@ import {
   getUsuario,
 } from '../store/authStore';
 import { avisarError } from '../utils/errores';
+import { HEADER_TOP } from '../utils/safeArea';
 
 const SelectEmpresaScreen = ({ navigation, route }) => {
   const [empresas, setEmpresas] = useState(route.params?.empresas || []);
@@ -96,7 +97,12 @@ const SelectEmpresaScreen = ({ navigation, route }) => {
 };
 
 const s = StyleSheet.create({
-  container: { flex: 1, padding: 24, backgroundColor: '#fff', paddingTop: 60 },
+  container: {
+    flex: 1,
+    padding: 24,
+    backgroundColor: '#fff',
+    paddingTop: HEADER_TOP + 8,
+  },
   title: { fontSize: 22, fontWeight: 'bold', marginBottom: 24, color: '#333' },
   card: {
     padding: 16,

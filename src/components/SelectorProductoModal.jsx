@@ -9,6 +9,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { coincide } from '../utils/texto';
+import { HEADER_TOP, BOTTOM_INSET } from '../utils/safeArea';
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-CO')}`;
 
@@ -111,13 +112,13 @@ const SelectorProductoModal = ({
 };
 
 const s = StyleSheet.create({
-  modal: { flex: 1, backgroundColor: '#fff' },
+  modal: { flex: 1, backgroundColor: '#fff', paddingBottom: BOTTOM_INSET },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    paddingTop: 50,
+    paddingTop: HEADER_TOP,
     borderBottomWidth: 1,
     borderColor: '#eee',
   },

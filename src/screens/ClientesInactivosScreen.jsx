@@ -12,6 +12,7 @@ import {
 import client from '../api/client';
 import { fmtFecha as fmtFechaBase } from '../utils/date';
 import { avisarError } from '../utils/errores';
+import { HEADER_TOP } from '../utils/safeArea';
 
 const fmtFecha = d => (d ? fmtFechaBase(d) : null);
 
@@ -168,7 +169,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    paddingTop: 50,
+    paddingTop: HEADER_TOP,
     backgroundColor: '#fff',
   },
   backBtn: { width: 60 },

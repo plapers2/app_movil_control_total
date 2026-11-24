@@ -15,6 +15,7 @@ import client from '../api/client';
 import FormScroll from '../components/FormScroll';
 import { avisarError } from '../utils/errores';
 import { validarEmail, validarPassword } from '../utils/validar';
+import { HEADER_TOP, BOTTOM_INSET } from '../utils/safeArea';
 
 const UsuariosScreen = ({ navigation }) => {
   const [miembros, setMiembros] = useState([]);
@@ -232,7 +233,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    paddingTop: 50,
+    paddingTop: HEADER_TOP,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderColor: '#eee',
@@ -269,13 +270,13 @@ const s = StyleSheet.create({
   rolEmp: { backgroundColor: '#E8F4FF' },
   rolText: { fontSize: 12, fontWeight: '600', color: '#333' },
   deleteBtn: { color: '#E63946', fontSize: 20, paddingLeft: 12 },
-  modal: { flex: 1, backgroundColor: '#fff' },
+  modal: { flex: 1, backgroundColor: '#fff', paddingBottom: BOTTOM_INSET },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    paddingTop: 50,
+    paddingTop: HEADER_TOP,
     borderBottomWidth: 1,
     borderColor: '#eee',
   },

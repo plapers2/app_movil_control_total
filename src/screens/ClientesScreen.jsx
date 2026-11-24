@@ -15,6 +15,7 @@ import client from '../api/client';
 import { coincide } from '../utils/texto';
 import { avisarError } from '../utils/errores';
 import FormScroll from '../components/FormScroll';
+import { HEADER_TOP, BOTTOM_INSET } from '../utils/safeArea';
 
 const ClientesScreen = () => {
   const [clientes, setClientes] = useState([]);
@@ -235,7 +236,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    paddingTop: 50,
+    paddingTop: HEADER_TOP,
     backgroundColor: '#fff',
   },
   title: { fontSize: 22, fontWeight: 'bold', color: '#333' },
@@ -294,13 +295,13 @@ const s = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: '#f0f0f0',
   },
-  modal: { flex: 1, backgroundColor: '#fff' },
+  modal: { flex: 1, backgroundColor: '#fff', paddingBottom: BOTTOM_INSET },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    paddingTop: 50,
+    paddingTop: HEADER_TOP,
     borderBottomWidth: 1,
     borderColor: '#eee',
   },
