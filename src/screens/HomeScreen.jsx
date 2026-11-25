@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import client from '../api/client';
@@ -28,6 +29,8 @@ const HomeScreen = () => {
   const navigation = useNavigation();
   const [empresa, setEmpresa] = useState(null);
   const [resumen, setResumen] = useState(null);
+  const [fondo, setFondo] = useState(null);
+  const [reconstruyendoFondo, setReconstruyendoFondo] = useState(false);
   const [deudas, setDeudas] = useState(null);
   const [serviciosPublicos, setServiciosPublicos] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -48,6 +51,40 @@ const HomeScreen = () => {
     } catch (err) {
       avisarError(err, 'No se pudo cargar el resumen.');
     }
+  };
+
+  const cargarFondo = async () => {
+    try {
+      const res = await client.get('/caja/fondo-resumen');
+      setFondo(res.data.data);
+    } catch (err) {
+      avisarError(err, 'No se pudo cargar el fondo de reposición.');
+    }
+  };
+
+  const reconstruirFondo = () => {
+    Alert.alert(
+      'Reconstruir fondo de reposición',
+      'Se recalculará el histórico con ventas, abonos, saldos a favor aplicados y gastos antiguos de insumos. No se modificará el balance ni los movimientos de Caja. Puedes repetir este proceso si corriges datos históricos.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Reconstruir',
+          onPress: async () => {
+            try {
+              setReconstruyendoFondo(true);
+              const res = await client.post('/caja/fondo-reconstruir');
+              await cargarFondo();
+              Alert.alert('Fondo actualizado', `Estado histórico: ${String(res.data.data.estado_historico).replace(/_/g, ' ')}. Saldo calculado: ${fmt(res.data.data.balance)}.`);
+            } catch (err) {
+              avisarError(err, 'No se pudo reconstruir el histórico del fondo.');
+            } finally {
+              setReconstruyendoFondo(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const cargarServiciosPublicos = async () => {
@@ -83,6 +120,7 @@ const HomeScreen = () => {
         cargarResumen({ periodo, ...(rango || {}) }),
         cargarDeudas(),
         cargarServiciosPublicos(),
+        cargarFondo(),
       ]);
     } finally {
       setLoading(false); // el spinner nunca se queda pegado
@@ -143,6 +181,23 @@ const HomeScreen = () => {
           {loading ? '···' : fmt(resumen?.balanceTotal)}
         </Text>
       </TouchableOpacity>
+
+      {fondo && (
+        <View style={s.fondoCard}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.fondoTitulo}>Fondo de reposición · informativo</Text>
+            <Text style={s.fondoValor}>{fmt(fondo.balance)}</Text>
+            <Text style={s.fondoMeta}>Recuperado: {fmt(fondo.recuperado)}  ·  Usado en insumos: {fmt(fondo.usado)}</Text>
+            <Text style={s.fondoMeta}>Financiado por fuera del fondo: {fmt(fondo.financiado_fuera)}</Text>
+            {!!fondo.estado_historico && <Text style={s.fondoEstado}>Histórico: {fondo.estado_historico.replace(/_/g, ' ')}</Text>}
+            {rol === 'admin' && (
+              <TouchableOpacity style={s.fondoRebuildBtn} onPress={reconstruirFondo} disabled={reconstruyendoFondo}>
+                <Text style={s.fondoRebuildText}>{reconstruyendoFondo ? 'Reconstruyendo histórico...' : 'Reconstruir histórico del fondo'}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      )}
 
       <Text style={s.section}>
         Resumen de{' '}
@@ -262,6 +317,21 @@ const s = StyleSheet.create({
     marginTop: 20,
     marginBottom: 10,
   },
+  fondoCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: colors.borde,
+  },
+  fondoTitulo: { fontSize: 13, fontWeight: '700', color: colors.texto },
+  fondoValor: { fontSize: 22, fontWeight: 'bold', color: colors.azul, marginTop: 5 },
+  fondoMeta: { fontSize: 11, color: colors.textoSuave, marginTop: 4 },
+  fondoRebuildBtn: { alignSelf: 'flex-start', marginTop: 9, paddingVertical: 7, paddingHorizontal: 10, borderRadius: 7, backgroundColor: colors.fondoSuave || '#f2f4f7' },
+  fondoRebuildText: { color: colors.primary, fontSize: 12, fontWeight: '700' },
+  fondoEstado: { fontSize: 11, color: colors.textoSuave, marginTop: 4, textTransform: 'capitalize' },
   balanceCard: {
     backgroundColor: '#fff',
     marginHorizontal: 16,

@@ -212,7 +212,7 @@ const InsumosScreen = () => {
                 Mín: {item.stock_minimo} {item.unidad_medida}
               </Text>
               <Text style={s.detail}>
-                Precio: {fmt(item.precio_unidad)}/{item.unidad_medida}
+                Costo promedio: {item.estado_costo === 'sin_costo_verificable' || item.estado_costo === 'incompleto' || (Number(item.stock_actual) > 0 && !(Number(item.precio_unidad) > 0)) ? 'No verificado' : `${fmt(item.precio_unidad)}/${item.unidad_medida}`}
               </Text>
             </View>
             {stockBajo(item) && <Text style={s.alertText}>⚠️ Stock bajo</Text>}
@@ -277,7 +277,9 @@ const InsumosScreen = () => {
                   setForm(prev => ({ ...prev, stock_actual: v }))
                 }
                 keyboardType="numeric"
+                editable={!editando || editando.stock_base == null}
               />
+              {editando?.stock_base != null && <Text style={s.helper}>El stock se actualiza automáticamente con compras y producción.</Text>}
             </View>
 
             {/* Stock mínimo */}
@@ -295,7 +297,7 @@ const InsumosScreen = () => {
 
             {/* Precio */}
             <View style={s.field}>
-              <Text style={s.label}>Precio por unidad</Text>
+              <Text style={s.label}>Costo promedio por unidad</Text>
               <TextInput
                 style={s.input}
                 value={form.precio_unidad}
@@ -303,7 +305,10 @@ const InsumosScreen = () => {
                   setForm(prev => ({ ...prev, precio_unidad: v }))
                 }
                 keyboardType="numeric"
+                editable={!editando || editando.stock_base == null || editando.estado_costo === 'sin_costo_verificable'}
               />
+              {editando?.stock_base != null && editando.estado_costo === 'sin_costo_verificable' && <Text style={s.helper}>El inventario inicial no tenía costo verificable. Ingresa aquí el costo respaldado por tus registros para calcular el promedio.</Text>}
+              {editando?.stock_base != null && editando.estado_costo !== 'sin_costo_verificable' && <Text style={s.helper}>Se recalcula automáticamente al registrar compras de este insumo.</Text>}
             </View>
 
             <TouchableOpacity
@@ -502,6 +507,7 @@ const s = StyleSheet.create({
   },
   modalTitle: { fontSize: 20, fontWeight: 'bold' },
   close: { fontSize: 20, color: colors.textoSuave },
+  helper: { fontSize: 12, color: colors.textoSuave, marginTop: 5 },
   field: { paddingHorizontal: 20, paddingTop: 16 },
   label: { fontSize: 13, color: colors.textoSuave, marginBottom: 6 },
   input: {

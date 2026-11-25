@@ -30,6 +30,7 @@ import { colors } from '../theme/colors';
 const CajaScreen = () => {
   const [movimientos, setMovimientos] = useState([]);
   const [resumen, setResumen] = useState(null);
+  const [fondo, setFondo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -59,7 +60,7 @@ const CajaScreen = () => {
   const [motivoAnular, setMotivoAnular] = useState('');
   const [anulando, setAnulando] = useState(false);
 
-  // Vincular el gasto a insumos (opcional) para sumar al inventario
+  // Detalle obligatorio de compra: cantidad y costo unitario por insumo
   const [serviciosPublicos, setServiciosPublicos] = useState([]);
   const [insumos, setInsumos] = useState([]);
   const [busquedaInsumo, setBusquedaInsumo] = useState('');
@@ -80,15 +81,17 @@ const CajaScreen = () => {
     setRefrescando(true);
     try {
       const qp = paramsFecha({ periodo, ...(rango || {}) });
-      const [m, r] = await Promise.all([
+      const [m, r, f] = await Promise.all([
         client.get(`/caja?${qp.toString()}&page=1&limit=10`),
         client.get(`/caja/resumen?${qp.toString()}`),
+        client.get('/caja/fondo-resumen'),
       ]);
       if (id !== reqId.current) return;
       setMovimientos(m.data.data);
       setPage(1);
       setTotalPages(m.data.meta?.pages ?? 1);
       setResumen(r.data.data);
+      setFondo(f.data.data);
     } catch (err) {
       if (id === reqId.current) avisarError(err, 'No se pudo cargar la caja.');
     } finally {
@@ -151,6 +154,7 @@ const CajaScreen = () => {
           nombre: insumo.nombre,
           unidad_medida: insumo.unidad_medida,
           cantidad: '',
+          costo_unitario: String(insumo.precio_unidad ?? ''),
         },
       ];
     });
@@ -167,6 +171,21 @@ const CajaScreen = () => {
       ),
     );
 
+  const cambiarCostoInsumoForm = (insumos_id, valor) =>
+    setInsumosForm(prev =>
+      prev.map(i => i.insumos_id === insumos_id ? { ...i, costo_unitario: valor } : i),
+    );
+
+  const totalCompraForm = Math.round(insumosForm.reduce(
+    (s, i) => {
+      const cantidad = Math.round(aNumero(i.cantidad) * 1000) / 1000;
+      const costo = Math.round(aNumero(i.costo_unitario) * 10000) / 10000;
+      const subtotal = cantidad > 0 && costo > 0 ? Math.round(cantidad * costo * 100) / 100 : 0;
+      return s + subtotal;
+    },
+    0,
+  ) * 100) / 100;
+
   useFocusEffect(
     useCallback(() => {
       cargarExtras();
@@ -179,8 +198,15 @@ const CajaScreen = () => {
     }, [cargar]),
   );
 
+  const abrirNuevoMovimiento = () => {
+    setForm({ tipo: 'gasto', categoria: 'insumo', tipo_servicio: null, periodo_servicio: '', monto: '', descripcion: '' });
+    setInsumosForm([]);
+    setBusquedaInsumo('');
+    setModal(true);
+  };
+
   const guardar = async () => {
-    const monto = aDinero(form.monto);
+    const monto = form.categoria === 'insumo' ? totalCompraForm : aDinero(form.monto);
     if (!form.descripcion.trim() || !(monto > 0))
       return Alert.alert(
         'Error',
@@ -193,11 +219,10 @@ const CajaScreen = () => {
       );
     if (form.categoria === 'servicio_publico' && !form.periodo_servicio)
       return Alert.alert('Mes requerido', 'Selecciona cuál mes de recibo estás registrando.');
-    if (insumosForm.some(i => !(aNumero(i.cantidad) > 0)))
-      return Alert.alert(
-        'Error',
-        'Revisa las cantidades de los insumos, deben ser mayores a 0 (o quítalos de la lista).',
-      );
+    if (form.categoria === 'insumo' && insumosForm.length === 0)
+      return Alert.alert('Compra incompleta', 'Agrega al menos un insumo a la compra.');
+    if (form.categoria === 'insumo' && insumosForm.some(i => !(aNumero(i.cantidad) > 0) || !(aNumero(i.costo_unitario) > 0)))
+      return Alert.alert('Compra incompleta', 'Cada insumo debe tener cantidad y costo unitario mayores a 0.');
     try {
       setSaving(true);
       await client.post('/caja', {
@@ -209,18 +234,17 @@ const CajaScreen = () => {
             : undefined,
         periodo_servicio:
           form.categoria === 'servicio_publico' ? form.periodo_servicio : undefined,
-        monto: aDinero(form.monto),
+        monto,
         descripcion: form.descripcion,
         fecha: getFechaHoyLocal(),
         insumos: insumosForm.length
           ? insumosForm.map(i => ({
               insumos_id: i.insumos_id,
               cantidad: aNumero(i.cantidad),
+              costo_unitario: aNumero(i.costo_unitario),
             }))
           : undefined,
       });
-      const spActualizados = await client.get('/servicios-publicos');
-      setServiciosPublicos(spActualizados.data.data.servicios || []);
       setModal(false);
       setForm({
         tipo: 'gasto',
@@ -232,6 +256,10 @@ const CajaScreen = () => {
       });
       setInsumosForm([]);
       setBusquedaInsumo('');
+      Promise.all([client.get('/servicios-publicos'), client.get('/insumos')]).then(([spActualizados, insumosActualizados]) => {
+        setServiciosPublicos(spActualizados.data.data.servicios || []);
+        setInsumos(insumosActualizados.data.data || []);
+      }).catch(() => {});
       cargar();
     } catch (err) {
       Alert.alert('Error', err.response?.data?.message || 'Error al guardar.');
@@ -254,16 +282,28 @@ const CajaScreen = () => {
       monto: String(mov.monto),
       descripcion: mov.descripcion || '',
     });
+    setInsumosForm((mov.compra_insumos?.items || []).map(i => ({
+      insumos_id: i.insumos_id,
+      nombre: i.insumos?.nombre || '',
+      unidad_medida: i.insumos?.unidad_medida || '',
+      cantidad: String(i.cantidad),
+      costo_unitario: String(i.costo_unitario),
+    })));
+    setBusquedaInsumo('');
     setModalEditar(true);
   };
 
   const guardarEdicion = async () => {
-    const monto = aDinero(form.monto);
-    if (!form.descripcion.trim() || !(monto > 0))
+    const monto = formEdit.categoria === 'insumo' ? totalCompraForm : aDinero(formEdit.monto);
+    if (!formEdit.descripcion.trim() || !(monto > 0))
       return Alert.alert(
         'Error',
         'Monto (mayor a 0) y descripción son requeridos.',
       );
+    if (formEdit.categoria === 'insumo' && insumosForm.length === 0)
+      return Alert.alert('Compra incompleta', 'Agrega al menos un insumo a la compra.');
+    if (formEdit.categoria === 'insumo' && insumosForm.some(i => !(aNumero(i.cantidad) > 0) || !(aNumero(i.costo_unitario) > 0)))
+      return Alert.alert('Compra incompleta', 'Cada insumo debe tener cantidad y costo unitario mayores a 0.');
     if (formEdit.categoria === 'servicio_publico' && !formEdit.tipo_servicio)
       return Alert.alert(
         'Error',
@@ -278,11 +318,15 @@ const CajaScreen = () => {
           formEdit.categoria === 'servicio_publico'
             ? formEdit.tipo_servicio
             : undefined,
-        monto: aNumero(formEdit.monto),
+        monto,
         descripcion: formEdit.descripcion,
         fecha: movEditando.fecha,
+        insumos: formEdit.categoria === 'insumo' ? insumosForm.map(i => ({ insumos_id: i.insumos_id, cantidad: aNumero(i.cantidad), costo_unitario: aNumero(i.costo_unitario) })) : undefined,
       });
       setModalEditar(false);
+      setInsumosForm([]);
+      setBusquedaInsumo('');
+      client.get('/insumos').then(insumosActualizados => setInsumos(insumosActualizados.data.data || [])).catch(() => {});
       cargar();
     } catch (err) {
       Alert.alert('Error', err.response?.data?.message || 'Error al editar.');
@@ -325,7 +369,7 @@ const CajaScreen = () => {
     <View style={s.container}>
       <View style={s.header}>
         <Text style={s.title}>Caja</Text>
-        <TouchableOpacity style={s.btnNew} onPress={() => setModal(true)}>
+        <TouchableOpacity style={s.btnNew} onPress={abrirNuevoMovimiento}>
           <Text style={s.btnNewText}>+ Movimiento</Text>
         </TouchableOpacity>
       </View>
@@ -355,6 +399,16 @@ const CajaScreen = () => {
             {fmt(resumen.balanceTotal)}
           </Text>
         </TouchableOpacity>
+      )}
+
+      {fondo && (
+        <View style={s.fondoCard}>
+          <Text style={s.fondoTitulo}>Fondo de reposición · informativo</Text>
+          <Text style={s.fondoValor}>{fmt(fondo.balance)}</Text>
+          <Text style={s.fondoMeta}>Recuperado: {fmt(fondo.recuperado)} · Usado en insumos: {fmt(fondo.usado)}</Text>
+          <Text style={s.fondoMeta}>Financiado por fuera: {fmt(fondo.financiado_fuera)}</Text>
+          <Text style={s.fondoMeta}>Estado histórico: {String(fondo.estado_historico || 'pendiente').replace(/_/g, ' ')}</Text>
+        </View>
       )}
 
       {resumen && (
@@ -441,6 +495,11 @@ const CajaScreen = () => {
                         Saldo a favor de un cliente (se corrige desde Clientes)
                       </Text>
                     ) : null}
+                  </Text>
+                ) : null}
+                {item.compra_insumos ? (
+                  <Text style={s.cardMeta}>
+                    Fondo aplicado: {fmt(item.compra_insumos.monto_fondo)} · Cubierto por fuera: {fmt(item.compra_insumos.monto_externo)}
                   </Text>
                 ) : null}
               </View>
@@ -620,7 +679,7 @@ const CajaScreen = () => {
               {form.tipo === 'gasto' && form.categoria === 'insumo' && (
                 <View style={s.field}>
                   <Text style={s.fieldLabel}>
-                    Vincular a insumos (opcional, suma al inventario)
+                    Insumos comprados * (cantidad y costo unitario)
                   </Text>
 
                   <View style={s.buscadorBox}>
@@ -670,11 +729,16 @@ const CajaScreen = () => {
                       <TextInput
                         style={s.cantInput}
                         value={i.cantidad}
-                        onChangeText={v =>
-                          cambiarCantidadInsumoForm(i.insumos_id, v)
-                        }
-                        keyboardType="numeric"
-                        placeholder="0"
+                        onChangeText={v => cambiarCantidadInsumoForm(i.insumos_id, v)}
+                        keyboardType="decimal-pad"
+                        placeholder="Cantidad"
+                      />
+                      <TextInput
+                        style={s.costoInput}
+                        value={i.costo_unitario}
+                        onChangeText={v => cambiarCostoInsumoForm(i.insumos_id, v)}
+                        keyboardType="decimal-pad"
+                        placeholder="Costo unit."
                       />
                       <Text style={s.unidad}>{i.unidad_medida}</Text>
                       <TouchableOpacity
@@ -691,10 +755,11 @@ const CajaScreen = () => {
                 <Text style={s.fieldLabel}>Monto *</Text>
                 <TextInput
                   style={s.input}
-                  value={form.monto}
+                  value={form.categoria === 'insumo' ? String(totalCompraForm) : form.monto}
                   onChangeText={v => setForm(p => ({ ...p, monto: v }))}
+                  editable={form.categoria !== 'insumo'}
                   keyboardType="numeric"
-                  placeholder="0"
+                  placeholder={form.categoria === 'insumo' ? 'Se calcula con los insumos' : '0'}
                 />
               </View>
               <View style={s.field}>
@@ -894,12 +959,40 @@ const CajaScreen = () => {
                   </>
                 )}
 
+              {formEdit.tipo === 'gasto' && formEdit.categoria === 'insumo' && (
+                <View style={s.field}>
+                  <Text style={s.fieldLabel}>Insumos comprados *</Text>
+                  <View style={s.buscadorBox}>
+                    <TextInput style={s.buscadorInput} value={busquedaInsumo} onChangeText={setBusquedaInsumo} placeholder="Buscar insumo..." placeholderTextColor="#aaa" />
+                  </View>
+                  {busquedaInsumo.trim().length > 0 && (
+                    <View style={s.dropdown}>
+                      {insumos.filter(i => !insumosForm.some(f => f.insumos_id === i.id) && coincide(i.nombre, busquedaInsumo)).map(i => (
+                        <TouchableOpacity key={i.id} style={s.prodRow} onPress={() => agregarInsumoForm(i)}>
+                          <Text style={s.prodNombre}>{i.nombre}</Text><Text style={s.prodPrecio}>{i.unidad_medida}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                  {insumosForm.map(i => (
+                    <View key={i.insumos_id} style={s.insumoFormRow}>
+                      <Text style={s.insumoFormNombre}>{i.nombre}</Text>
+                      <TextInput style={s.cantInput} value={i.cantidad} onChangeText={v => cambiarCantidadInsumoForm(i.insumos_id, v)} keyboardType="decimal-pad" placeholder="Cantidad" />
+                      <TextInput style={s.costoInput} value={i.costo_unitario} onChangeText={v => cambiarCostoInsumoForm(i.insumos_id, v)} keyboardType="decimal-pad" placeholder="Costo unit." />
+                      <Text style={s.unidad}>{i.unidad_medida}</Text>
+                      <TouchableOpacity onPress={() => quitarInsumoForm(i.insumos_id)}><Text style={s.removeBtn}>✕</Text></TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+
               <View style={s.field}>
                 <Text style={s.fieldLabel}>Monto *</Text>
                 <TextInput
                   style={s.input}
-                  value={formEdit.monto}
+                  value={formEdit.categoria === 'insumo' ? String(totalCompraForm) : formEdit.monto}
                   onChangeText={v => setFormEdit(p => ({ ...p, monto: v }))}
+                  editable={formEdit.categoria !== 'insumo'}
                   keyboardType="numeric"
                 />
               </View>
@@ -931,7 +1024,7 @@ const CajaScreen = () => {
       <ModalAnular
         visible={modalAnular}
         titulo="Anular movimiento"
-        descripcion="Este movimiento quedará marcado como anulado. Si estaba vinculado a insumos, revisa el inventario manualmente."
+        descripcion="Si es una compra de insumos, el inventario se reversará automáticamente. No se permitirá anularla si esos insumos ya fueron utilizados en producción."
         placeholder="Ej: Monto incorrecto, registro duplicado..."
         textoBoton="Anular movimiento"
         motivo={motivoAnular}
@@ -955,6 +1048,10 @@ const s = StyleSheet.create({
     paddingTop: HEADER_TOP,
     backgroundColor: '#fff',
   },
+  fondoCard: { backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: colors.borde, padding: 12, marginHorizontal: 16, marginTop: 10 },
+  fondoTitulo: { fontSize: 12, fontWeight: '700', color: colors.texto },
+  fondoValor: { fontSize: 20, fontWeight: 'bold', color: colors.azul, marginTop: 4 },
+  fondoMeta: { fontSize: 11, color: colors.textoSuave, marginTop: 3 },
   balanceActualCard: {
     backgroundColor: '#fff',
     marginHorizontal: 16,
@@ -1126,6 +1223,7 @@ const s = StyleSheet.create({
     fontSize: 14,
     backgroundColor: '#fff',
   },
+  costoInput: { borderWidth: 1, borderColor: colors.borde, borderRadius: 6, padding: 8, width: 92, textAlign: 'center', fontSize: 13, backgroundColor: '#fff' },
   unidad: { fontSize: 13, color: colors.textoSuave, width: 35 },
   removeBtn: { color: colors.primary, fontSize: 16 },
   field: { paddingHorizontal: 20, paddingTop: 8 },

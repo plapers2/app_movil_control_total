@@ -30,7 +30,7 @@ import { colors } from '../theme/colors';
 // ─── Paso 1: Seleccionar producto ────────────────────────────────────
 const PasoProducto = ({ productos, onSeleccionar }) => (
   <View style={{ flex: 1 }}>
-    <Text style={s.sectionLabel}>¿Qué producto vas a producir?</Text>
+    <Text style={s.sectionLabel}>¿Qué producto vas a ingresar al inventario?</Text>
     <FlatList
       data={productos.filter(p => p.activo)}
       keyExtractor={p => String(p.id)}
@@ -116,8 +116,34 @@ const PasoInsumos = ({ producto, onGuardar, onVolver, saving }) => {
 
   const confirmar = () => {
     const cantNum = aNumero(cantidad);
-    if (!cantNum || cantNum <= 0)
-      return Alert.alert('Error', 'La cantidad debe ser mayor a 0.');
+    if (!Number.isInteger(cantNum) || cantNum <= 0) {
+      return Alert.alert('Error', 'La cantidad de unidades debe ser un entero mayor a 0.');
+    }
+
+    const consumosReales = insumos.map(i => ({
+      insumos_id: i.insumos_id,
+      cantidad: i.cantidad_real.trim() === '' ? 0 : aNumero(i.cantidad_real),
+    }));
+
+    const consumosInvalidos = consumosReales.some(({ cantidad: qty }) =>
+      !Number.isFinite(qty) ||
+      qty < 0 ||
+      Math.abs(qty * 1000 - Math.round(qty * 1000)) > 0.000001,
+    );
+
+    if (!sinReceta && consumosInvalidos) {
+      return Alert.alert(
+        'Error',
+        'Las cantidades de insumos deben ser cero o positivas y admitir máximo tres decimales.',
+      );
+    }
+
+    if (!sinReceta && !consumosReales.some(i => i.cantidad > 0)) {
+      return Alert.alert(
+        'Error',
+        'Debes registrar al menos un insumo con una cantidad mayor a cero.',
+      );
+    }
 
     if (faltantes.length > 0)
       return Alert.alert(
@@ -134,16 +160,18 @@ const PasoInsumos = ({ producto, onGuardar, onVolver, saving }) => {
       );
     }
 
-    onGuardar({
+    const datos = {
       productos_id: producto.id,
       cantidad: cantNum,
       notas,
-      costo_total: sinReceta ? aDinero(costoTotal) : undefined,
-      insumos_reales: insumos.map(i => ({
-        insumos_id: i.insumos_id,
-        cantidad: aNumero(i.cantidad_real) || 0,
-      })),
-    });
+      ...(sinReceta ? { costo_total: aDinero(costoTotal) } : {}),
+    };
+
+    // Solo se envía la lista cuando el producto tiene receta.
+    // Así el backend diferencia consumos reales de costeo manual.
+    if (!sinReceta) datos.insumos_reales = consumosReales;
+
+    onGuardar(datos);
   };
 
   return (
@@ -265,7 +293,7 @@ const PasoInsumos = ({ producto, onGuardar, onVolver, saving }) => {
         disabled={saving}
       >
         <Text style={s.btnGuardarText}>
-          {saving ? 'Registrando...' : '✓ Registrar lote producido'}
+          {saving ? 'Registrando...' : '✓ Registrar lote'}
         </Text>
       </TouchableOpacity>
     </ScrollView>
@@ -289,6 +317,7 @@ const ProduccionScreen = () => {
   const [loteEditando, setLoteEditando] = useState(null);
   const [cantidadEdit, setCantidadEdit] = useState('1');
   const [insumosEdit, setInsumosEdit] = useState([]);
+  const [productoEditandoTieneReceta, setProductoEditandoTieneReceta] = useState(false);
   const [costoTotalEdit, setCostoTotalEdit] = useState('');
   const [notasEdit, setNotasEdit] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
@@ -417,38 +446,119 @@ const ProduccionScreen = () => {
       // Solo soporta editar lotes de un solo item (que es como se crean hoy)
       const item = l.lotes_produccion_items?.[0];
       setCantidadEdit(item ? String(item.cantidad) : '1');
-      // Receta actual del producto: sirve para recalcular al cambiar unidades
-      const recetaProd =
-        productos.find(p => p.id === item?.productos_id)?.recetas || [];
+      // Receta actual del producto: agrupar ingredientes repetidos.
+      let productoActual = productos.find(
+        p => Number(p.id) === Number(item?.productos_id),
+      );
+
+      // Si el catálogo aún no terminó de cargar, se consulta antes de decidir
+      // si el producto usa receta o costo manual. No se debe adivinar el método.
+      if (!productoActual) {
+        const respuestaProductos = await client.get('/productos');
+        const productosActualizados = respuestaProductos.data.data || [];
+        setProductos(productosActualizados);
+        productoActual = productosActualizados.find(
+          p => Number(p.id) === Number(item?.productos_id),
+        );
+      }
+
+      if (!productoActual) {
+        throw new Error('No se pudo verificar la receta del producto. Recarga el catálogo e inténtalo nuevamente.');
+      }
+
+      const recetaProd = Array.isArray(productoActual.recetas)
+        ? productoActual.recetas
+        : [];
+      const tieneReceta = recetaProd.length > 0;
+      setProductoEditandoTieneReceta(tieneReceta);
+
+      const recetasAgrupadas = new Map();
+
+      recetaProd.forEach(r => {
+        const key = String(r.insumos_id);
+        const existente = recetasAgrupadas.get(key);
+
+        if (existente) {
+          existente.cantidad += Number(r.cantidad);
+        } else {
+          recetasAgrupadas.set(key, {
+            insumos_id: r.insumos_id,
+            insumo: r.insumos,
+            cantidad: Number(r.cantidad),
+          });
+        }
+      });
+
       const filaDe = (insumos_id, insumo, cantidad, yaUsado) => {
-        const r = recetaProd.find(x => x.insumos_id === insumos_id);
+        const receta = recetasAgrupadas.get(String(insumos_id));
+
         return {
           insumos_id,
           nombre: insumo?.nombre || '',
           unidad: insumo?.unidad_medida || '',
           cantidad: fmtCant(cantidad),
-          // Disponible real para este lote: stock actual + lo que ya descontó
           disponible: Number(insumo?.stock_actual ?? 0) + yaUsado,
-          base: r ? Number(r.cantidad) : null,
+          base: receta ? receta.cantidad : null,
         };
       };
-      const filas = (l.movimientos_insumos || []).map(m =>
-        filaDe(m.insumos_id, m.insumos, Number(m.cantidad), Number(m.cantidad)),
-      );
-      // Insumos de la receta que el lote no usó (cantidad 0): se ofrecen en 0
-      if (filas.length > 0) {
-        recetaProd.forEach(r => {
-          if (!filas.some(f => f.insumos_id === r.insumos_id))
-            filas.push(filaDe(r.insumos_id, r.insumos, 0, 0));
-        });
-      }
-      setInsumosEdit(filas);
-      // Si el item no tiene insumos asociados, es un producto sin receta:
-      // precargamos el costo total actual (costo_unitario × cantidad) para
-      // que se pueda corregir.
+
+      // Solo considerar movimientos vigentes de salida.
+      // Los movimientos anulados se conservan en el historial,
+      // pero no deben aparecer ni sumarse al editar.
+      const movimientosActivos = tieneReceta
+        ? (l.movimientos_insumos || []).filter(
+            m => m.tipo === 'salida' && !m.anulado,
+          )
+        : [];
+
+      // Agrupar los movimientos activos por insumo.
+      const movimientosAgrupados = new Map();
+
+      movimientosActivos.forEach(m => {
+        const key = String(m.insumos_id);
+        const existente = movimientosAgrupados.get(key);
+
+        if (existente) {
+          existente.cantidad += Number(m.cantidad);
+        } else {
+          movimientosAgrupados.set(key, {
+            insumos_id: m.insumos_id,
+            insumo: m.insumos,
+            cantidad: Number(m.cantidad),
+          });
+        }
+      });
+
+      // Crear una sola fila por insumo, sumando las cantidades.
+      const filas = [];
+
+      movimientosAgrupados.forEach(m => {
+        filas.push(filaDe(m.insumos_id, m.insumo, m.cantidad, m.cantidad));
+      });
+
+      // Agregar ingredientes de receta que todavía no tengan
+      // un movimiento activo, con cantidad inicial de cero.
+      recetasAgrupadas.forEach((r, key) => {
+        if (!movimientosAgrupados.has(key)) {
+          filas.push(filaDe(r.insumos_id, r.insumo, 0, 0));
+        }
+      });
+
+      // Un producto sin receta siempre se edita con costo manual, aunque
+      // tenga movimientos antiguos asociados al lote.
+      setInsumosEdit(tieneReceta ? filas : []);
+
+      const costoTotalGuardado = Number(l.costo_total);
+      const costoTotalDesdeItem = item
+        ? Number(item.costo_unitario ?? 0) * Number(item.cantidad ?? 0)
+        : 0;
+      const costoTotalActual =
+        Number.isFinite(costoTotalGuardado) && costoTotalGuardado > 0
+          ? costoTotalGuardado
+          : costoTotalDesdeItem;
       setCostoTotalEdit(
-        item && Number(item.costo_unitario) > 0
-          ? String(Math.round(Number(item.costo_unitario) * item.cantidad))
+        Number.isFinite(costoTotalActual) && costoTotalActual > 0
+          ? String(costoTotalActual)
           : '',
       );
       setModalEditar(true);
@@ -497,42 +607,75 @@ const ProduccionScreen = () => {
 
   const guardarEdicion = async () => {
     const cantNum = aNumero(cantidadEdit);
-    if (!cantNum || cantNum <= 0)
-      return Alert.alert('Error', 'La cantidad debe ser mayor a 0.');
-    if (insumosEdit.some(i => i.cantidad !== '' && !(aNumero(i.cantidad) >= 0)))
-      return Alert.alert('Error', 'Revisa las cantidades de los insumos.');
-    if (faltantesEdit.length > 0)
-      return Alert.alert(
-        'Insumos insuficientes',
-        faltantesEdit
-          .map(i => `• ${i.nombre}: faltan ${fmtCant(i.falta)} ${i.unidad}`)
-          .join('\n'),
+    if (!Number.isInteger(cantNum) || cantNum <= 0) {
+      return Alert.alert('Error', 'La cantidad de unidades debe ser un entero mayor a 0.');
+    }
+
+    const consumosReales = insumosEdit.map(i => ({
+      insumos_id: i.insumos_id,
+      cantidad: i.cantidad.trim() === '' ? 0 : aNumero(i.cantidad),
+    }));
+
+    if (productoEditandoTieneReceta) {
+      const consumosInvalidos = consumosReales.some(({ cantidad: qty }) =>
+        !Number.isFinite(qty) ||
+        qty < 0 ||
+        Math.abs(qty * 1000 - Math.round(qty * 1000)) > 0.000001,
       );
 
-    const item = loteEditando.lotes_produccion_items?.[0];
-    const sinRecetaEdit = insumosEdit.length === 0;
-    if (sinRecetaEdit && (!costoTotalEdit || aDinero(costoTotalEdit) <= 0)) {
+      if (consumosInvalidos) {
+        return Alert.alert(
+          'Error',
+          'Las cantidades de insumos deben ser cero o positivas y admitir máximo tres decimales.',
+        );
+      }
+
+      if (!consumosReales.some(i => i.cantidad > 0)) {
+        return Alert.alert(
+          'Error',
+          'Debes registrar al menos un insumo con una cantidad mayor a cero.',
+        );
+      }
+
+      if (faltantesEdit.length > 0) {
+        return Alert.alert(
+          'Insumos insuficientes',
+          faltantesEdit
+            .map(i => `• ${i.nombre}: faltan ${fmtCant(i.falta)} ${i.unidad}`)
+            .join('\n'),
+        );
+      }
+    } else if (!costoTotalEdit || aDinero(costoTotalEdit) <= 0) {
       return Alert.alert(
         'Error',
         'Ingresa cuánto pagaste en total por este lote.',
       );
     }
+
+    const item = loteEditando.lotes_produccion_items?.[0];
+    if (!item) {
+      return Alert.alert('Error', 'No se encontró el producto asociado al lote.');
+    }
+
+    const datos = {
+      notas: notasEdit,
+      items: [
+        {
+          productos_id: item.productos_id,
+          cantidad: cantNum,
+          ...(!productoEditandoTieneReceta
+            ? { costo_total: aDinero(costoTotalEdit) }
+            : {}),
+        },
+      ],
+    };
+
+    // El arreglo se envía únicamente para productos con receta.
+    if (productoEditandoTieneReceta) datos.insumos_reales = consumosReales;
+
     try {
       setSavingEdit(true);
-      await client.put(`/produccion/${loteEditando.id}`, {
-        notas: notasEdit,
-        items: [
-          {
-            productos_id: item.productos_id,
-            cantidad: cantNum,
-            costo_total: sinRecetaEdit ? aDinero(costoTotalEdit) : undefined,
-          },
-        ],
-        insumos_reales: insumosEdit.map(i => ({
-          insumos_id: i.insumos_id,
-          cantidad: aNumero(i.cantidad) || 0,
-        })),
-      });
+      await client.put(`/produccion/${loteEditando.id}`, datos);
       setModalEditar(false);
       cargar();
     } catch (err) {
@@ -574,17 +717,18 @@ const ProduccionScreen = () => {
   }) => {
     try {
       setSaving(true);
-      await client.post('/produccion', {
+      const datos = {
         fecha: getFechaHoyLocal(),
         notas,
         items: [{ productos_id, cantidad, costo_total }],
-        insumos_reales, // para descuento real si el backend lo soporta
-      });
+      };
+      if (Array.isArray(insumos_reales)) datos.insumos_reales = insumos_reales;
+      await client.post('/produccion', datos);
       setModal(false);
       cargar();
       Alert.alert(
         '✓ Lote registrado',
-        `Se registraron ${cantidad} unidades producidas de ${productoSeleccionado?.nombre}.`,
+        `Se registraron ${cantidad} unidades de ${productoSeleccionado?.nombre} en el inventario.`,
       );
     } catch (err) {
       Alert.alert(
@@ -779,8 +923,8 @@ const ProduccionScreen = () => {
                 </View>
               ) : null}
 
-              {/* Productos producidos */}
-              <Text style={s.sectionLabel}>Productos producidos</Text>
+              {/* Producto ingresado al inventario */}
+              <Text style={s.sectionLabel}>Producto ingresado al inventario</Text>
               {loteDetalle.lotes_produccion_items?.map(li => (
                 <View key={li.id} style={s.detalleRow}>
                   <Text style={s.detalleRowNombre}>{li.productos?.nombre}</Text>
@@ -788,22 +932,51 @@ const ProduccionScreen = () => {
                 </View>
               ))}
 
-              {/* Insumos usados */}
-              {loteDetalle.movimientos_insumos?.length > 0 && (
-                <>
-                  <Text style={s.sectionLabel}>Insumos utilizados</Text>
-                  {loteDetalle.movimientos_insumos.map(m => (
-                    <View key={m.id} style={s.detalleRow}>
-                      <Text style={s.detalleRowNombre}>
-                        {m.insumos?.nombre}
-                      </Text>
-                      <Text style={s.detalleRowCant}>
-                        {m.cantidad} {m.insumos?.unidad_medida}
-                      </Text>
-                    </View>
-                  ))}
-                </>
-              )}
+              {/* Movimientos vigentes y movimientos históricos anulados */}
+              {(() => {
+                const movimientos = loteDetalle.movimientos_insumos || [];
+                const vigentes = movimientos.filter(m => !m.anulado);
+                const anulados = movimientos.filter(m => m.anulado);
+
+                return (
+                  <>
+                    {vigentes.length > 0 && (
+                      <>
+                        <Text style={s.sectionLabel}>Insumos utilizados actualmente</Text>
+                        {vigentes.map(m => (
+                          <View key={m.id} style={s.detalleRow}>
+                            <Text style={s.detalleRowNombre}>
+                              {m.insumos?.nombre}
+                            </Text>
+                            <Text style={s.detalleRowCant}>
+                              {m.cantidad} {m.insumos?.unidad_medida}
+                            </Text>
+                          </View>
+                        ))}
+                      </>
+                    )}
+
+                    {anulados.length > 0 && (
+                      <>
+                        <Text style={s.sectionLabel}>Historial de consumos reemplazados o anulados</Text>
+                        {anulados.map(m => (
+                          <View key={m.id} style={s.detalleRow}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={s.detalleRowNombre}>
+                                {m.insumos?.nombre}
+                              </Text>
+                              <Text style={s.detalleLabel}>Movimiento anulado</Text>
+                            </View>
+                            <Text style={[s.detalleRowCant, { color: colors.textoSuave }]}>
+                              {m.cantidad} {m.insumos?.unidad_medida}
+                            </Text>
+                          </View>
+                        ))}
+                      </>
+                    )}
+                  </>
+                );
+              })()}
 
               {/* Costo */}
               {Number(loteDetalle.costo_total) > 0 && (
@@ -857,7 +1030,7 @@ const ProduccionScreen = () => {
                 />
               </View>
 
-              {insumosEdit.length > 0 ? (
+              {productoEditandoTieneReceta ? (
                 <>
                   <Text style={s.sectionLabel}>Insumos utilizados</Text>
                   <Text style={s.sectionHint}>
