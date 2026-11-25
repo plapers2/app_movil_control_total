@@ -30,6 +30,7 @@ const HomeScreen = () => {
   const [empresa, setEmpresa] = useState(null);
   const [resumen, setResumen] = useState(null);
   const [fondo, setFondo] = useState(null);
+  const [dineroDisponible, setDineroDisponible] = useState(null);
   const [reconstruyendoFondo, setReconstruyendoFondo] = useState(false);
   const [deudas, setDeudas] = useState(null);
   const [serviciosPublicos, setServiciosPublicos] = useState(null);
@@ -62,6 +63,15 @@ const HomeScreen = () => {
     }
   };
 
+  const cargarDisponible = async () => {
+    try {
+      const res = await client.get('/caja/disponible-resumen');
+      setDineroDisponible(res.data.data);
+    } catch (err) {
+      avisarError(err, 'No se pudo calcular el dinero disponible.');
+    }
+  };
+
   const reconstruirFondo = () => {
     Alert.alert(
       'Reconstruir fondo de reposición',
@@ -74,10 +84,20 @@ const HomeScreen = () => {
             try {
               setReconstruyendoFondo(true);
               const res = await client.post('/caja/fondo-reconstruir');
-              await cargarFondo();
-              Alert.alert('Fondo actualizado', `Estado histórico: ${String(res.data.data.estado_historico).replace(/_/g, ' ')}. Saldo calculado: ${fmt(res.data.data.balance)}.`);
+              await Promise.all([cargarFondo(), cargarDisponible()]);
+              Alert.alert(
+                'Fondo actualizado',
+                `Estado histórico: ${String(
+                  res.data.data.estado_historico,
+                ).replace(/_/g, ' ')}. Saldo calculado: ${fmt(
+                  res.data.data.balance,
+                )}.`,
+              );
             } catch (err) {
-              avisarError(err, 'No se pudo reconstruir el histórico del fondo.');
+              avisarError(
+                err,
+                'No se pudo reconstruir el histórico del fondo.',
+              );
             } finally {
               setReconstruyendoFondo(false);
             }
@@ -107,23 +127,29 @@ const HomeScreen = () => {
 
   const cargarTodo = useCallback(async () => {
     setLoading(true);
+
     try {
+      // Datos de sesión y permisos.
       const [e, r, u] = await Promise.all([
         getEmpresa(),
         getRol(),
         getUsuario(),
       ]);
+
       setEsSuper(!!u?.es_superadmin);
       setEmpresa(e);
       setRol(r);
+
+      // Información financiera y operativa del Inicio.
       await Promise.all([
         cargarResumen({ periodo, ...(rango || {}) }),
         cargarDeudas(),
         cargarServiciosPublicos(),
         cargarFondo(),
+        cargarDisponible(),
       ]);
     } finally {
-      setLoading(false); // el spinner nunca se queda pegado
+      setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodo, rango]);
@@ -181,18 +207,92 @@ const HomeScreen = () => {
           {loading ? '···' : fmt(resumen?.balanceTotal)}
         </Text>
       </TouchableOpacity>
+      {dineroDisponible && (
+        <View
+          style={[
+            s.disponibleCard,
+            {
+              borderLeftColor:
+                Number(dineroDisponible.disponible) >= 0
+                  ? colors.verde
+                  : colors.primary,
+            },
+          ]}
+        >
+          <Text style={s.disponibleTitulo}>
+            {dineroDisponible.requiere_revision ||
+            !dineroDisponible.historico_confiable
+              ? 'Dinero disponible estimado'
+              : 'Dinero disponible'}
+          </Text>
 
+          <Text
+            style={[
+              s.disponibleValor,
+              {
+                color:
+                  Number(dineroDisponible.disponible) >= 0
+                    ? colors.verde
+                    : colors.primary,
+              },
+            ]}
+          >
+            {fmt(dineroDisponible.disponible)}
+          </Text>
+
+          <Text style={s.disponibleMeta}>
+            Balance de Caja: {fmt(dineroDisponible.balance_caja)}
+          </Text>
+
+          <Text style={s.disponibleMeta}>
+            Saldos a favor de clientes:{' '}
+            {fmt(dineroDisponible.saldos_favor_clientes)}
+          </Text>
+
+          <Text style={s.disponibleMeta}>
+            Reserva del fondo: {fmt(dineroDisponible.reserva_fondo)}
+          </Text>
+
+          {(dineroDisponible.requiere_revision ||
+            !dineroDisponible.historico_confiable) && (
+            <View style={s.disponibleAviso}>
+              <Text style={s.disponibleAvisoTexto}>
+                El histórico del fondo está incompleto. Este valor es estimado y
+                requiere revisión antes de considerarlo dinero disponible para
+                gastar.
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
       {fondo && (
         <View style={s.fondoCard}>
           <View style={{ flex: 1 }}>
             <Text style={s.fondoTitulo}>Fondo de reposición · informativo</Text>
             <Text style={s.fondoValor}>{fmt(fondo.balance)}</Text>
-            <Text style={s.fondoMeta}>Recuperado: {fmt(fondo.recuperado)}  ·  Usado en insumos: {fmt(fondo.usado)}</Text>
-            <Text style={s.fondoMeta}>Financiado por fuera del fondo: {fmt(fondo.financiado_fuera)}</Text>
-            {!!fondo.estado_historico && <Text style={s.fondoEstado}>Histórico: {fondo.estado_historico.replace(/_/g, ' ')}</Text>}
+            <Text style={s.fondoMeta}>
+              Recuperado: {fmt(fondo.recuperado)} · Usado en insumos:{' '}
+              {fmt(fondo.usado)}
+            </Text>
+            <Text style={s.fondoMeta}>
+              Financiado por fuera del fondo: {fmt(fondo.financiado_fuera)}
+            </Text>
+            {!!fondo.estado_historico && (
+              <Text style={s.fondoEstado}>
+                Histórico: {fondo.estado_historico.replace(/_/g, ' ')}
+              </Text>
+            )}
             {rol === 'admin' && (
-              <TouchableOpacity style={s.fondoRebuildBtn} onPress={reconstruirFondo} disabled={reconstruyendoFondo}>
-                <Text style={s.fondoRebuildText}>{reconstruyendoFondo ? 'Reconstruyendo histórico...' : 'Reconstruir histórico del fondo'}</Text>
+              <TouchableOpacity
+                style={s.fondoRebuildBtn}
+                onPress={reconstruirFondo}
+                disabled={reconstruyendoFondo}
+              >
+                <Text style={s.fondoRebuildText}>
+                  {reconstruyendoFondo
+                    ? 'Reconstruyendo histórico...'
+                    : 'Reconstruir histórico del fondo'}
+                </Text>
               </TouchableOpacity>
             )}
           </View>
@@ -261,7 +361,14 @@ const HomeScreen = () => {
           <View style={{ flex: 1 }}>
             <Text style={s.serviciosTitulo}>Servicios públicos</Text>
             <Text style={s.serviciosSub}>
-              {serviciosPublicos.servicios.map(item => `${item.nombre}: ${item.pendientes}`).join(' · ')} pendientes
+              {serviciosPublicos.servicios
+                .map(
+                  item =>
+                    `${item.nombre}: ${item.vencidos ?? 0} vencidos / ${
+                      item.pendientes
+                    } pendientes`,
+                )
+                .join(' · ')}
             </Text>
           </View>
           <Text style={s.serviciosFlecha}>›</Text>
@@ -317,6 +424,43 @@ const s = StyleSheet.create({
     marginTop: 20,
     marginBottom: 10,
   },
+  disponibleCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: colors.borde,
+    borderLeftWidth: 4,
+    elevation: 1,
+  },
+  disponibleTitulo: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.texto,
+  },
+  disponibleValor: {
+    fontSize: 25,
+    fontWeight: 'bold',
+    marginTop: 5,
+  },
+  disponibleMeta: {
+    fontSize: 11,
+    color: colors.textoSuave,
+    marginTop: 4,
+  },
+  disponibleAviso: {
+    backgroundColor: '#fff6e5',
+    borderRadius: 7,
+    padding: 9,
+    marginTop: 9,
+  },
+  disponibleAvisoTexto: {
+    fontSize: 11,
+    color: '#8a5a00',
+    lineHeight: 16,
+  },
   fondoCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -327,11 +471,28 @@ const s = StyleSheet.create({
     borderColor: colors.borde,
   },
   fondoTitulo: { fontSize: 13, fontWeight: '700', color: colors.texto },
-  fondoValor: { fontSize: 22, fontWeight: 'bold', color: colors.azul, marginTop: 5 },
+  fondoValor: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: colors.azul,
+    marginTop: 5,
+  },
   fondoMeta: { fontSize: 11, color: colors.textoSuave, marginTop: 4 },
-  fondoRebuildBtn: { alignSelf: 'flex-start', marginTop: 9, paddingVertical: 7, paddingHorizontal: 10, borderRadius: 7, backgroundColor: colors.fondoSuave || '#f2f4f7' },
+  fondoRebuildBtn: {
+    alignSelf: 'flex-start',
+    marginTop: 9,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 7,
+    backgroundColor: colors.fondoSuave || '#f2f4f7',
+  },
   fondoRebuildText: { color: colors.primary, fontSize: 12, fontWeight: '700' },
-  fondoEstado: { fontSize: 11, color: colors.textoSuave, marginTop: 4, textTransform: 'capitalize' },
+  fondoEstado: {
+    fontSize: 11,
+    color: colors.textoSuave,
+    marginTop: 4,
+    textTransform: 'capitalize',
+  },
   balanceCard: {
     backgroundColor: '#fff',
     marginHorizontal: 16,
@@ -365,7 +526,18 @@ const s = StyleSheet.create({
   deudaLabel: { fontSize: 14, fontWeight: '700', color: colors.texto },
   deudaSub: { fontSize: 12, color: colors.textoSuave, marginTop: 2 },
   deudaValor: { fontSize: 18, fontWeight: 'bold', color: colors.primary },
-  serviciosCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', marginHorizontal: 12, marginTop: 10, padding: 16, borderRadius: 10, borderLeftWidth: 4, borderLeftColor: colors.azul, elevation: 1 },
+  serviciosCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    marginHorizontal: 12,
+    marginTop: 10,
+    padding: 16,
+    borderRadius: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.azul,
+    elevation: 1,
+  },
   serviciosTitulo: { fontSize: 14, fontWeight: '700', color: colors.texto },
   serviciosSub: { fontSize: 12, color: colors.textoSuave, marginTop: 3 },
   serviciosFlecha: { fontSize: 28, color: colors.azul, marginLeft: 8 },
