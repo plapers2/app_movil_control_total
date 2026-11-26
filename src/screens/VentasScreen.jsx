@@ -11,6 +11,7 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  Image,
 } from 'react-native';
 import client from '../api/client';
 import { getFechaHoyLocal, fmtFecha } from '../utils/date';
@@ -27,6 +28,7 @@ import { paramsFecha } from '../utils/query';
 import ModalAnular from '../components/ModalAnular';
 import { colors } from '../theme/colors';
 import KeyboardView from '../components/KeyboardView';
+import { urlImagen } from '../utils/imagenes';
 
 const DOMICILIO_DEFECTO = '3000';
 
@@ -852,7 +854,15 @@ const VentasScreen = () => {
               <Text style={s.sectionLabel}>Productos</Text>
               {ventaDetalle.ventas_items?.map(vi => (
                 <View key={vi.id} style={s.detalleRow}>
-                  <View style={{ flex: 1 }}>
+                  {vi.productos?.imagen_url ? (
+                    <Image
+                      source={{ uri: urlImagen(vi.productos.imagen_url) }}
+                      style={s.imagenProductoDetalle}
+                      resizeMode="cover"
+                    />
+                  ) : null}
+
+                  <View style={s.detalleProductoInfo}>
                     <Text style={s.detalleRowNombre}>
                       {vi.productos?.nombre}
                     </Text>
@@ -860,6 +870,7 @@ const VentasScreen = () => {
                       x{vi.cantidad} · {fmt(vi.precio_unitario)} c/u
                     </Text>
                   </View>
+
                   <Text style={s.detalleRowCant}>{fmt(vi.subtotal)}</Text>
                 </View>
               ))}
@@ -1329,7 +1340,21 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#f0f0f0',
   },
-  detalleRowNombre: { fontSize: 14, color: colors.texto, fontWeight: '600' },
+  imagenProductoDetalle: {
+    width: 52,
+    height: 52,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: '#f2f2f2',
+  },
+  detalleProductoInfo: {
+    flex: 1,
+  },
+  detalleRowNombre: {
+    fontSize: 14,
+    color: colors.texto,
+    fontWeight: '600',
+  },
   detalleRowCant: { fontSize: 14, color: colors.verde, fontWeight: '700' },
   actions: {
     flexDirection: 'row',
