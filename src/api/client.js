@@ -1,8 +1,7 @@
 import axios from 'axios';
 import { Alert } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { resetTo } from '../navigation/navigationRef';
-import { clearSession } from '../store/authStore';
+import { clearSession, getToken } from '../store/authStore';
 
 // const API_URL = 'https://apicontroltotal.vidriospelaez.com.co/api/'; // Produccion
 const API_URL = 'http://10.0.2.2:3000/api/'; // Desarrollo
@@ -13,7 +12,7 @@ const esRutaLogin = config => !!config?.url?.includes('/auth/login');
 
 client.interceptors.request.use(async config => {
   if (esRutaLogin(config)) return config; // el login no lleva token
-  const token = await AsyncStorage.getItem('token');
+  const token = await getToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -44,7 +43,7 @@ client.interceptors.response.use(
       // Solo actuar si la petición que falló usó la sesión que sigue vigente.
       // Así una respuesta tardía de la sesión anterior no borra la nueva.
       const tokenUsado = error.config?.headers?.Authorization;
-      const tokenActual = await AsyncStorage.getItem('token');
+      const tokenActual = await getToken();
       const sesionVigente =
         !!tokenUsado && tokenUsado === `Bearer ${tokenActual}`;
 
