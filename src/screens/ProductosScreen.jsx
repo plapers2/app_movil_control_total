@@ -11,6 +11,7 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  Image,
 } from 'react-native';
 import client from '../api/client';
 import { getRol } from '../store/authStore';
@@ -20,6 +21,8 @@ import { aNumero, aDinero } from '../utils/validar';
 import { HEADER_TOP, BOTTOM_INSET } from '../utils/safeArea';
 import { fmt } from '../utils/formato';
 import { colors } from '../theme/colors';
+import { launchImageLibrary } from 'react-native-image-picker';
+import { urlImagen } from '../utils/imagenes';
 
 const ProductosScreen = () => {
   const [productos, setProductos] = useState([]);
@@ -30,6 +33,7 @@ const ProductosScreen = () => {
   const [saving, setSaving] = useState(false);
   const [editando, setEditando] = useState(null);
   const [modalInsumo, setModalInsumo] = useState(false);
+  const [imagenSeleccionada, setImagenSeleccionada] = useState(null);
 
   const [form, setForm] = useState({
     nombre: '',
@@ -65,6 +69,45 @@ const ProductosScreen = () => {
     }, [cargar]),
   );
 
+  const seleccionarImagen = async () => {
+    try {
+      const resultado = await launchImageLibrary({
+        mediaType: 'photo',
+        selectionLimit: 1,
+        quality: 0.8,
+      });
+
+      if (resultado.didCancel) return;
+
+      if (resultado.errorCode) {
+        Alert.alert(
+          'Error',
+          resultado.errorMessage || 'No se pudo seleccionar la imagen.',
+        );
+        return;
+      }
+
+      const imagen = resultado.assets?.[0];
+
+      if (!imagen?.uri) {
+        Alert.alert('Error', 'No se pudo obtener la imagen seleccionada.');
+        return;
+      }
+
+      if (imagen.fileSize && imagen.fileSize > 5 * 1024 * 1024) {
+        Alert.alert(
+          'Imagen demasiado grande',
+          'Selecciona una imagen de máximo 5 MB.',
+        );
+        return;
+      }
+
+      setImagenSeleccionada(imagen);
+    } catch (err) {
+      Alert.alert('Error', 'No se pudo abrir la galería.');
+    }
+  };
+
   const abrirNuevo = () => {
     setEditando(null);
     setForm({
@@ -76,6 +119,7 @@ const ProductosScreen = () => {
       usa_gas: false,
     });
     setReceta([]);
+    setImagenSeleccionada(null);
     setModal(true);
   };
 
@@ -97,6 +141,7 @@ const ProductosScreen = () => {
         cantidad: String(r.cantidad),
       })),
     );
+    setImagenSeleccionada(null);
     setModal(true);
   };
 
@@ -165,8 +210,63 @@ const ProductosScreen = () => {
         })),
       });
 
+      // La fotografía se sube después de guardar el producto y su receta.
+      // Si falla, no repetimos la creación del producto.
+      let errorImagen = null;
+
+      if (imagenSeleccionada) {
+        try {
+          const tipo = imagenSeleccionada.type;
+          const extensiones = {
+            'image/jpeg': 'jpg',
+            'image/png': 'png',
+            'image/webp': 'webp',
+          };
+
+          const extension = extensiones[tipo];
+
+          if (!extension) {
+            throw new Error(
+              'La imagen debe ser JPG, PNG o WEBP. Selecciona otra fotografía.',
+            );
+          }
+
+          const archivo = {
+            uri: imagenSeleccionada.uri,
+            type: tipo,
+            name:
+              imagenSeleccionada.fileName ||
+              `producto-${productoId}.${extension}`,
+          };
+
+          const datosImagen = new FormData();
+          datosImagen.append('imagen', archivo);
+
+          await client.post(`/productos/${productoId}/imagen`, datosImagen, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          });
+        } catch (errImagen) {
+          errorImagen =
+            errImagen.response?.data?.message ||
+            errImagen.message ||
+            'No se pudo subir la fotografía.';
+        }
+      }
+
       setModal(false);
-      cargar();
+      setImagenSeleccionada(null);
+      await cargar();
+
+      if (errorImagen) {
+        Alert.alert(
+          'Producto guardado',
+          `Los datos y la receta se guardaron correctamente, pero la fotografía no se pudo subir.\n\n${errorImagen}\n\nPuedes editar el producto e intentarlo nuevamente.`,
+        );
+      } else {
+        Alert.alert('Éxito', 'Producto guardado correctamente.');
+      }
     } catch (err) {
       Alert.alert('Error', err.response?.data?.message || 'Error al guardar.');
     } finally {
@@ -224,6 +324,14 @@ const ProductosScreen = () => {
         renderItem={({ item }) => (
           <View style={s.card}>
             <View style={s.cardRow}>
+              {item.imagen_url ? (
+                <Image
+                  source={{ uri: urlImagen(item.imagen_url) }}
+                  style={s.cardImagen}
+                  resizeMode="cover"
+                />
+              ) : null}
+
               <View style={{ flex: 1 }}>
                 <Text style={s.cardNombre}>{item.nombre}</Text>
                 {rol === 'admin' && item.descripcion ? (
@@ -300,6 +408,39 @@ const ProductosScreen = () => {
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={{ paddingBottom: 32 }}
             >
+              <View style={s.imagenSection}>
+                {imagenSeleccionada?.uri || editando?.imagen_url ? (
+                  <Image
+                    source={{
+                      uri:
+                        imagenSeleccionada?.uri ||
+                        urlImagen(editando?.imagen_url),
+                    }}
+                    style={s.imagenPreview}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={s.imagenVacia}>
+                    <Text style={s.imagenVaciaTexto}>Sin fotografía</Text>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={s.btnImagen}
+                  onPress={seleccionarImagen}
+                  disabled={saving}
+                >
+                  <Text style={s.btnImagenTexto}>
+                    {imagenSeleccionada || editando?.imagen_url
+                      ? 'Cambiar fotografía'
+                      : 'Seleccionar fotografía'}
+                  </Text>
+                </TouchableOpacity>
+
+                <Text style={s.imagenAyuda}>
+                  Formatos permitidos: JPG, PNG y WEBP. Máximo 5 MB.
+                </Text>
+              </View>
               {/* ── Datos básicos ── */}
               <Text style={s.sectionLabel}>Información del producto</Text>
 
@@ -563,6 +704,56 @@ const s = StyleSheet.create({
   },
   recetaLabel: { fontSize: 12, color: colors.textoSuave, fontWeight: '600' },
   recetaText: { fontSize: 12, color: '#555', flex: 1 },
+  cardImagen: {
+    width: 76,
+    height: 76,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: '#f0f0f0',
+  },
+  imagenSection: {
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 20,
+  },
+  imagenPreview: {
+    width: 180,
+    height: 150,
+    borderRadius: 10,
+    backgroundColor: '#f0f0f0',
+  },
+  imagenVacia: {
+    width: 180,
+    height: 150,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.borde,
+    borderStyle: 'dashed',
+    backgroundColor: '#fafafa',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imagenVaciaTexto: {
+    color: colors.textoSuave,
+    fontSize: 13,
+  },
+  btnImagen: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: colors.primary,
+  },
+  btnImagenTexto: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  imagenAyuda: {
+    marginTop: 6,
+    fontSize: 11,
+    color: colors.textoSuave,
+    textAlign: 'center',
+  },
   modal: { flex: 1, backgroundColor: '#fff', paddingBottom: BOTTOM_INSET },
   modalHeader: {
     flexDirection: 'row',

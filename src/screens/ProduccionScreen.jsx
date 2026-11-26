@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Pressable,
+  Image,
 } from 'react-native';
 import client from '../api/client';
 import { getFechaHoyLocal, fmtFecha } from '../utils/date';
@@ -26,6 +27,7 @@ import { fmt } from '../utils/formato';
 import { paramsFecha } from '../utils/query';
 import ModalAnular from '../components/ModalAnular';
 import { colors } from '../theme/colors';
+import { urlImagen } from '../utils/imagenes';
 
 // ─── Paso 1: Seleccionar producto ────────────────────────────────────
 const PasoProducto = ({ productos, onSeleccionar }) => (
@@ -43,6 +45,14 @@ const PasoProducto = ({ productos, onSeleccionar }) => (
           style={s.prodCard}
           onPress={() => onSeleccionar(item)}
         >
+          {item.imagen_url ? (
+            <Image
+              source={{ uri: urlImagen(item.imagen_url) }}
+              style={s.prodImagen}
+              resizeMode="cover"
+            />
+          ) : null}
+
           <View style={{ flex: 1 }}>
             <Text style={s.prodNombre}>{item.nombre}</Text>
             {item.recetas?.length > 0 ? (
@@ -185,6 +195,15 @@ const PasoInsumos = ({ producto, onGuardar, onVolver, saving }) => {
         <TouchableOpacity onPress={onVolver} style={s.volverBtn}>
           <Text style={s.volverText}>‹ Cambiar</Text>
         </TouchableOpacity>
+
+        {producto.imagen_url ? (
+          <Image
+            source={{ uri: urlImagen(producto.imagen_url) }}
+            style={s.productoImagenSeleccionado}
+            resizeMode="cover"
+          />
+        ) : null}
+
         <Text style={s.productoSeleccionadoNombre}>{producto.nombre}</Text>
       </View>
 
@@ -816,7 +835,15 @@ const ProduccionScreen = () => {
             {item.notas ? <Text style={s.cardNotas}>{item.notas}</Text> : null}
             {item.lotes_produccion_items?.map(li => (
               <View key={li.id} style={s.loteItem}>
-                <Text style={s.loteItemNombre}>• {li.productos?.nombre}</Text>
+                {li.productos?.imagen_url ? (
+                  <Image
+                    source={{ uri: urlImagen(li.productos.imagen_url) }}
+                    style={s.imagenProductoLote}
+                    resizeMode="cover"
+                  />
+                ) : null}
+
+                <Text style={s.loteItemNombre}>{li.productos?.nombre}</Text>
                 <Text style={s.loteItemCant}>{li.cantidad} uds</Text>
               </View>
             ))}
@@ -927,6 +954,14 @@ const ProduccionScreen = () => {
               <Text style={s.sectionLabel}>Producto ingresado al inventario</Text>
               {loteDetalle.lotes_produccion_items?.map(li => (
                 <View key={li.id} style={s.detalleRow}>
+                  {li.productos?.imagen_url ? (
+                    <Image
+                      source={{ uri: urlImagen(li.productos.imagen_url) }}
+                      style={s.imagenProductoLote}
+                      resizeMode="cover"
+                    />
+                  ) : null}
+
                   <Text style={s.detalleRowNombre}>{li.productos?.nombre}</Text>
                   <Text style={s.detalleRowCant}>{li.cantidad} uds</Text>
                 </View>
@@ -1015,6 +1050,20 @@ const ProduccionScreen = () => {
               contentContainerStyle={{ paddingBottom: 20 }}
             >
               <View style={s.productoSeleccionado}>
+                {loteEditando?.lotes_produccion_items?.[0]?.productos
+                  ?.imagen_url ? (
+                  <Image
+                    source={{
+                      uri: urlImagen(
+                        loteEditando.lotes_produccion_items[0].productos
+                          .imagen_url,
+                      ),
+                    }}
+                    style={s.productoImagenSeleccionado}
+                    resizeMode="cover"
+                  />
+                ) : null}
+
                 <Text style={s.productoSeleccionadoNombre}>
                   {loteEditando?.lotes_produccion_items?.[0]?.productos?.nombre}
                 </Text>
@@ -1191,10 +1240,15 @@ const s = StyleSheet.create({
   },
   loteItem: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 4,
   },
-  loteItemNombre: { fontSize: 13, color: '#555' },
+  loteItemNombre: {
+    flex: 1,
+    fontSize: 13,
+    color: '#555',
+  },
   loteItemCant: { fontSize: 13, color: colors.azul, fontWeight: '600' },
   cardCosto: {
     fontSize: 13,
@@ -1367,13 +1421,18 @@ const s = StyleSheet.create({
   detalleValor: { fontSize: 13, color: colors.texto, fontWeight: '600' },
   detalleRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 10,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
     borderColor: '#f0f0f0',
   },
-  detalleRowNombre: { fontSize: 14, color: colors.texto },
+  detalleRowNombre: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.texto,
+  },
   detalleRowCant: { fontSize: 14, color: colors.azul, fontWeight: '600' },
   filtros: {
     paddingHorizontal: 16,
@@ -1416,6 +1475,27 @@ const s = StyleSheet.create({
     paddingTop: 8,
   },
   editBtn: { marginRight: 4 },
+  prodImagen: {
+    width: 52,
+    height: 52,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: '#f2f2f2',
+  },
+  productoImagenSeleccionado: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    marginRight: 10,
+    backgroundColor: '#f2f2f2',
+  },
+  imagenProductoLote: {
+    width: 40,
+    height: 40,
+    borderRadius: 7,
+    marginRight: 10,
+    backgroundColor: '#f2f2f2',
+  },
 });
 
 export default ProduccionScreen;

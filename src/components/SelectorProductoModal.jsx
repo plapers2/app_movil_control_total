@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  Image,
   Modal,
   TextInput,
   TouchableOpacity,
@@ -12,6 +13,7 @@ import { coincide } from '../utils/texto';
 import { HEADER_TOP, BOTTOM_INSET } from '../utils/safeArea';
 import { fmt } from '../utils/formato';
 import { colors } from '../theme/colors';
+import { urlImagen } from '../utils/imagenes';
 
 // Modal de selección de producto: carga todos los productos activos con un
 // buscador arriba (mismo patrón que el selector de cliente en VentasScreen).
@@ -85,7 +87,15 @@ const SelectorProductoModal = ({
                 style={[s.prodRow, seleccionado && s.prodRowDesactivado]}
                 onPress={() => toggle(item)}
               >
-                <View style={{ flex: 1 }}>
+                {item.imagen_url ? (
+                  <Image
+                    source={{ uri: urlImagen(item.imagen_url) }}
+                    style={s.prodImagen}
+                    resizeMode="cover"
+                  />
+                ) : null}
+
+                <View style={s.prodInfo}>
                   <Text
                     style={[s.prodNombre, seleccionado && { color: '#aaa' }]}
                   >
@@ -93,6 +103,7 @@ const SelectorProductoModal = ({
                   </Text>
                   <Text style={s.prodPrecio}>{fmt(item.precio_venta)}</Text>
                 </View>
+
                 {seleccionado ? (
                   <Text style={s.yaAgregado}>✓ Agregado</Text>
                 ) : (
@@ -170,6 +181,16 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   btnListoText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
+  prodImagen: {
+    width: 52,
+    height: 52,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: '#f2f2f2',
+  },
+  prodInfo: {
+    flex: 1,
+  },
 });
 
 export default SelectorProductoModal;
