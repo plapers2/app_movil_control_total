@@ -145,7 +145,12 @@ const RentabilidadScreen = () => {
           <Text style={s.consumoTexto}>
             {consumoPropio.unidades} unidad
             {consumoPropio.unidades === 1 ? '' : 'es'} · costo{' '}
-            {fmt(consumoPropio.costoConVariable)}
+            {consumoPropio.noVerificable ||
+            consumoPropio.costoConVariable == null
+              ? 'no verificable'
+              : `${fmt(consumoPropio.costoConVariable)}${
+                  consumoPropio.estimado ? ' (estimado)' : ''
+                }`}
           </Text>
         </View>
       )}
