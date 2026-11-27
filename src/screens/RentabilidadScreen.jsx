@@ -58,13 +58,23 @@ const RentabilidadScreen = () => {
     );
   };
 
-  // Totales del periodo, sumando todos los productos vendidos
+  // Totales del periodo: si un producto no tiene costo verificable,
+  // el total correspondiente tampoco se presenta como una cifra completa.
   const totales = productos.reduce(
     (acc, p) => ({
       ingreso: acc.ingreso + p.ingreso,
-      costoDirecto: acc.costoDirecto + p.costoDirectoTotal,
-      costoConVariable: acc.costoConVariable + p.costoConVariableTotal,
-      utilidad: acc.utilidad + p.utilidadConVariable,
+      costoDirecto:
+        acc.costoDirecto == null || p.costoDirectoTotal == null
+          ? null
+          : acc.costoDirecto + p.costoDirectoTotal,
+      costoConVariable:
+        acc.costoConVariable == null || p.costoConVariableTotal == null
+          ? null
+          : acc.costoConVariable + p.costoConVariableTotal,
+      utilidad:
+        acc.utilidad == null || p.utilidadConVariable == null
+          ? null
+          : acc.utilidad + p.utilidadConVariable,
     }),
     { ingreso: 0, costoDirecto: 0, costoConVariable: 0, utilidad: 0 },
   );
@@ -102,7 +112,9 @@ const RentabilidadScreen = () => {
             <View style={s.resumenItem}>
               <Text style={s.resumenLabel}>Costo + variable</Text>
               <Text style={s.resumenValor}>
-                {fmt(totales.costoConVariable)}
+                {totales.costoConVariable == null
+                  ? 'No verificable'
+                  : fmt(totales.costoConVariable)}
               </Text>
             </View>
             <View style={s.resumenItem}>
@@ -112,11 +124,15 @@ const RentabilidadScreen = () => {
                   s.resumenValor,
                   {
                     color:
-                      totales.utilidad >= 0 ? colors.verde : colors.primary,
+                      totales.utilidad == null
+                        ? colors.textoSuave
+                        : totales.utilidad >= 0
+                          ? colors.verde
+                          : colors.primary,
                   },
                 ]}
               >
-                {fmt(totales.utilidad)}
+                {totales.utilidad == null ? 'No verificable' : fmt(totales.utilidad)}
               </Text>
             </View>
           </View>
@@ -171,13 +187,15 @@ const RentabilidadScreen = () => {
                   s.cardUtilidad,
                   {
                     color:
-                      item.utilidadConVariable >= 0
-                        ? colors.verde
-                        : colors.primary,
+                      item.utilidadConVariable == null
+                        ? colors.textoSuave
+                        : item.utilidadConVariable >= 0
+                          ? colors.verde
+                          : colors.primary,
                   },
                 ]}
               >
-                {fmt(item.utilidadConVariable)}
+                {item.utilidadConVariable == null ? 'No verificable' : fmt(item.utilidadConVariable)}
               </Text>
             </View>
             <Text style={s.cardSub}>
@@ -188,22 +206,32 @@ const RentabilidadScreen = () => {
               <View style={s.costoFila}>
                 <Text style={s.costoLabel}>Costo directo</Text>
                 <Text style={s.costoValor}>
-                  {fmt(item.costoDirectoUnitario)} / unidad
-                  {item.costoDirectoEstimado ? ' · estimado' : ''}
+                  {item.costoDirectoUnitario == null
+                    ? 'No verificable'
+                    : `${fmt(item.costoDirectoUnitario)} / unidad${
+                        item.costoDirectoEstimado ? ' · estimado' : ''
+                      }`}
                 </Text>
               </View>
               <View style={s.costoFila}>
                 <Text style={s.costoLabel}>Directo + variable</Text>
                 <Text style={s.costoValor}>
-                  {fmt(item.costoConVariableUnitario)} / unidad
-                  {item.indirectoEstimado ? ' · estimado' : ''}
+                  {item.costoConVariableUnitario == null
+                    ? 'No verificable'
+                    : `${fmt(item.costoConVariableUnitario)} / unidad${
+                        item.costoConVariableEstimado ? ' · estimado' : ''
+                      }`}
                 </Text>
               </View>
             </View>
 
             <Text style={s.margen}>
-              Margen: {fmtPct(item.margenConVariable)} (solo insumos:{' '}
-              {fmtPct(item.margenDirecto)})
+              Margen: {item.margenConVariable == null
+                ? 'No verificable'
+                : fmtPct(item.margenConVariable)} (solo insumos:{' '}
+              {item.margenDirecto == null
+                ? 'No verificable'
+                : fmtPct(item.margenDirecto)})
             </Text>
           </View>
         )}
