@@ -55,6 +55,8 @@ jest.mock('../src/components/BotonVerMas', () => {
           ),
         )
       : null;
+
+
 });
 
 jest.mock('../src/components/KeyboardView', () => {
@@ -804,6 +806,256 @@ describe('VentasScreen: creación de ventas', () => {
       expect.any(Error),
       'No se pudo cargar el detalle.',
     );
+  });
+  const configurarVenta = (venta, errorDetalle = null) => {
+    client.get.mockImplementation(async url => {
+      if (url.startsWith('/ventas?')) {
+        return { data: { data: [venta], meta: { pages: 1 } } };
+      }
+      if (url === '/productos') {
+        return { data: { data: PRODUCTOS } };
+      }
+      if (url === '/clientes') {
+        return { data: { data: [CLIENTE] } };
+      }
+      if (url === `/ventas/${venta.id}`) {
+        if (errorDetalle) throw errorDetalle;
+        return { data: { data: venta } };
+      }
+      throw new Error(`GET no esperado: ${url}`);
+    });
+  };
+
+  const pulsarAccionVenta = async emoji => {
+    const tarjeta = screen.root
+      .findAllByType(TouchableOpacity)
+      .find(boton =>
+        boton.findAllByType(Text).some(texto => {
+          const contenido = Array.isArray(texto.props.children)
+            ? texto.props.children.join('')
+            : texto.props.children;
+
+          return typeof contenido === 'string' &&
+            contenido.startsWith('Venta #');
+        }),
+      );
+
+    if (!tarjeta) {
+      throw new Error('No se encontró la tarjeta de la venta.');
+    }
+
+    const boton = tarjeta
+      .findAllByType(TouchableOpacity)
+      .filter(candidato => candidato !== tarjeta)
+      .find(candidato =>
+        candidato.findAllByType(Text).some(
+          texto => texto.props.children === emoji,
+        ),
+      );
+
+    if (!boton || typeof boton.props.onPress !== 'function') {
+      throw new Error(`No se encontró la acción ${emoji} de la venta.`);
+    }
+
+    await ReactTestRenderer.act(async () => {
+      await boton.props.onPress();
+      await flushPromises();
+    });
+  };
+
+  const crearVentaParaPrueba = id => ({
+    id,
+    fecha: '2026-11-28',
+    canal: 'punto_venta',
+    total: 5000,
+    valor_domicilio: 0,
+    estado_pago: 'pagada',
+    notas: 'Nota de prueba',
+    clientes: null,
+    ventas_items: [
+      {
+        id: 1,
+        productos_id: 1,
+        cantidad: 1,
+        precio_unitario: 5000,
+        subtotal: 5000,
+        productos: { nombre: 'Arepa de queso' },
+      },
+    ],
+  });
+
+  test('edita una venta y envia los datos actualizados', async () => {
+    const venta = crearVentaParaPrueba(79);
+    configurarVenta(venta);
+
+    await renderScreen();
+    await pulsarAccionVenta('✏️');
+
+    expect(client.get).toHaveBeenCalledWith('/ventas/79');
+    expect(
+      screen.root.findAllByType(Text).some(item => {
+        const contenido = Array.isArray(item.props.children)
+          ? item.props.children.join('')
+          : item.props.children;
+        return contenido === 'Editar venta #79';
+      }),
+    ).toBe(true);
+
+    const cantidad = buscarInput(campo => campo.props.value === '1');
+    expect(cantidad).toBeDefined();
+
+    await ReactTestRenderer.act(async () => {
+      cantidad.props.onChangeText('2');
+    });
+
+    await pulsarBoton(texto => texto.includes('Guardar cambios'));
+
+    expect(client.put).toHaveBeenCalledWith('/ventas/79', {
+      canal: 'punto_venta',
+      valor_domicilio: 0,
+      notas: 'Nota de prueba',
+      items: [
+        {
+          productos_id: 1,
+          cantidad: 2,
+          precio_unitario: 5000,
+        },
+      ],
+    });
+  });
+
+  test('impide guardar una edicion con cantidades decimales', async () => {
+    const venta = crearVentaParaPrueba(80);
+    configurarVenta(venta);
+
+    await renderScreen();
+    await pulsarAccionVenta('✏️');
+
+    const cantidad = buscarInput(campo => campo.props.value === '1');
+    expect(cantidad).toBeDefined();
+
+    await ReactTestRenderer.act(async () => {
+      cantidad.props.onChangeText('1.5');
+    });
+
+    await pulsarBoton(texto => texto.includes('Guardar cambios'));
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Error',
+      expect.stringContaining('mayores a 0'),
+    );
+    expect(client.put).not.toHaveBeenCalled();
+  });
+
+  test('notifica el error al cargar una venta para editar', async () => {
+    const venta = crearVentaParaPrueba(81);
+    const error = new Error('Error de prueba al cargar venta');
+    configurarVenta(venta, error);
+
+    await renderScreen();
+    await pulsarAccionVenta('✏️');
+
+    const { avisarError } = require('../src/utils/errores');
+
+    expect(avisarError).toHaveBeenCalledWith(
+      error,
+      'No se pudo cargar la venta.',
+    );
+  });
+
+  test('impide anular una venta sin indicar el motivo', async () => {
+    const venta = crearVentaParaPrueba(82);
+    configurarVenta(venta);
+
+    await renderScreen();
+    await pulsarAccionVenta('🗑');
+
+    expect(
+      screen.root.findByProps({ testID: 'mock-modal-anular' }),
+    ).toBeDefined();
+
+    await ReactTestRenderer.act(async () => {
+      screen.root.findByProps({ testID: 'confirmar-anulacion' })
+        .props.onPress();
+      await flushPromises();
+    });
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Error',
+      'Debes indicar un motivo.',
+    );
+    expect(client.delete).not.toHaveBeenCalled();
+  });
+
+  test('anula una venta enviando el motivo sin espacios adicionales', async () => {
+    const venta = crearVentaParaPrueba(83);
+    configurarVenta(venta);
+
+    await renderScreen();
+    await pulsarAccionVenta('🗑');
+
+    const motivo = screen.root.findByProps({
+      testID: 'motivo-anulacion',
+    });
+
+    await ReactTestRenderer.act(async () => {
+      motivo.props.onChangeText('  Cliente canceló  ');
+    });
+
+    await ReactTestRenderer.act(async () => {
+      screen.root.findByProps({ testID: 'confirmar-anulacion' })
+        .props.onPress();
+      await flushPromises();
+    });
+
+    expect(client.delete).toHaveBeenCalledWith('/ventas/83', {
+      data: { motivo: 'Cliente canceló' },
+    });
+
+    expect(
+      screen.root.findAllByProps({ testID: 'mock-modal-anular' }),
+    ).toHaveLength(0);
+  });
+
+  test('muestra el error si el servidor rechaza la anulacion', async () => {
+    const venta = crearVentaParaPrueba(84);
+    configurarVenta(venta);
+
+    client.delete.mockRejectedValue({
+      response: {
+        data: { message: 'No se puede anular esta venta.' },
+      },
+    });
+
+    await renderScreen();
+    await pulsarAccionVenta('🗑');
+
+    const motivo = screen.root.findByProps({
+      testID: 'motivo-anulacion',
+    });
+
+    await ReactTestRenderer.act(async () => {
+      motivo.props.onChangeText('Error de registro');
+    });
+
+    await ReactTestRenderer.act(async () => {
+      screen.root.findByProps({ testID: 'confirmar-anulacion' })
+        .props.onPress();
+      await flushPromises();
+    });
+
+    expect(client.delete).toHaveBeenCalledWith('/ventas/84', {
+      data: { motivo: 'Error de registro' },
+    });
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Error',
+      'No se puede anular esta venta.',
+    );
+
+    expect(
+      screen.root.findByProps({ testID: 'mock-modal-anular' }),
+    ).toBeDefined();
   });
 });
 
